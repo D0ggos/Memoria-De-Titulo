@@ -1,0 +1,10 @@
+\chapter{Detalles de Implementación y Conjunto de Datos}
+\label{anexo:implementacion}
+
+\rev{Este anexo se incluyó para resolver la referencia rota \texttt{\textbackslash include\{Capitulos/Anexo1\}} del documento principal (el archivo no existía y, de mantenerse, podía romper la compilación según la configuración de \texttt{report}/\texttt{appendix}). Reemplaza o amplía su contenido según corresponda.}
+
+\section{Topología del Conjunto de Datos UNICAMP}
+\rev{El arreglo \texttt{BASE} del archivo \texttt{DB\_ssf\_RS\_500\_c.mat} se indexa como \texttt{BASE[$n_x$, $n_u$, $N$, caso]} con dimensiones $5\times2\times5\times500$. Cada celda contiene los campos \texttt{A} (vértices, $N$ matrices $n_x\times n_x$), \texttt{B} (vértices, $N$ matrices $n_x\times n_u$) y \texttt{K} (ganancia estática $n_u\times n_x$ pre-calculada). Para la topología principal de esta memoria ($n_x=3$, $n_u=1$, $N=2$) se dispone de $500$ sistemas robustamente estabilizables.}
+
+\section{Hiperparámetros de Entrenamiento}
+\rev{Resumir aquí: optimizador (Adam), tasa de aprendizaje ($10^{-3}$), épocas (50), iteraciones de Douglas--Rachford en entrenamiento (30) e inferencia (5000), \texttt{batch size} (16), semilla del \texttt{split} train/test (42), y precisión numérica (\texttt{float64}).}

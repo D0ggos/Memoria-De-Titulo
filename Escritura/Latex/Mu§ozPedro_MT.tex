@@ -1,0 +1,91 @@
+% !TEX root = MuñozPedro_MT.tex
+\documentclass[11pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla,es-nodecimaldot]{babel}
+
+% --- Geometría y Márgenes ---
+\usepackage[paper=letterpaper, inner=2.5cm, outer=2cm, bindingoffset=0.5cm, top=2.5cm, bottom=2cm, head=20.4pt]{geometry}
+
+% --- Estilo y Fuente ---
+\usepackage{lmodern}
+\usepackage{setspace}
+\onehalfspacing 
+\usepackage[parfill]{parskip}
+
+% --- Paquetes de Estructura y Estilo ---
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{booktabs,tabularx,tabularray,multirow,makecell}
+\usepackage[hidelinks]{hyperref}
+\usepackage{float,pdfpages}
+\usepackage{tikz}
+\usetikzlibrary{babel,positioning,calc}
+\usepackage{subcaption}
+\usepackage{algorithm2e}
+\usepackage{fancyhdr} % NECESARIO PARA ENCABEZADOS PROFESIONALES
+
+% --- Comandos Personalizados ---
+\newcommand{\pendiente}[1]{\textcolor{red}{\textbf{[PENDIENTE: #1]}}}
+% Comando para las correcciones/sugerencias de revisión (texto en azul para revisión del autor)
+\definecolor{revcolor}{RGB}{0,70,200}
+\newcommand{\rev}[1]{\textcolor{revcolor}{#1}}
+\newcommand{\revnota}[1]{\textcolor{revcolor}{\textbf{[REVISIÓN: #1]}}}
+
+% --- Configuración de Títulos ---
+\titleformat{\chapter}[hang]{\normalfont\huge\bfseries}{\thechapter.}{1em}{}
+\titleformat{\section}[hang]{\normalfont\Large\bfseries}{\thesection.}{1em}{}
+
+% --- Configuración de Encabezados (Estilo Tesis) ---
+\pagestyle{fancy}
+\fancyhf{} % Limpiar encabezados y pies
+\fancyhead[LE,RO]{\thepage} % Número de página en esquinas
+\fancyhead[LO]{\nouppercase{\rightmark}} % Sección en páginas impares
+\fancyhead[RE]{\nouppercase{\leftmark}} % Capítulo en páginas pares
+\renewcommand{\headrulewidth}{0.4pt} % Línea debajo del encabezado
+
+% --- Ajustes de Tabla ---
+\renewcommand{\arraystretch}{1.2}
+\decimalpoint
+
+\begin{document}	
+
+    % --- PORTADA ---
+	\pagestyle{empty}
+	\include{Portada} % Asegúrate de tener el archivo Portada.tex creado
+    
+    % --- FRONTMATTER ---
+    \pagenumbering{roman}
+    \pagestyle{plain}
+
+	\chapter*{Agradecimientos}
+	\chapter*{Resumen}
+    
+	\tableofcontents
+	\listoftables	
+	\listoffigures
+
+    % --- CUERPO PRINCIPAL ---
+	\newpage
+	\pagenumbering{arabic}
+	\pagestyle{fancy} % Aquí activamos los encabezados profesionales
+	
+    \include{Capitulos/Introduccion}
+    \include{Capitulos/Marco_teorico}
+    \include{Capitulos/planteamiento}
+	\include{Capitulos/experimentos}
+    \include{Capitulos/conclusiones}
+	
+    % --- BIBLIOGRAFÍA ---
+    % Se recomienda usar biblatex para mayor flexibilidad en tesis
+	\bibliographystyle{plain}
+	\bibliography{biblio}
+	
+    % --- APÉNDICES ---
+	\appendix
+	\renewcommand{\chaptertitlename}{Anexo}
+	\include{Capitulos/Anexo1} % Mueve el contenido del anexo a un archivo
+    
+\end{document}

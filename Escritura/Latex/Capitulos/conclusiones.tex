@@ -1,0 +1,49 @@
+\chapter{Conclusiones y trabajo futuro}
+\label{sec:conclusiones}
+
+\revnota{Capítulo en borrador. El contenido en azul son propuestas de la revisión para que las edites, recortes o redactes en tu propia voz. Faltan las conclusiones generales del trabajo (resumen de resultados, cumplimiento de objetivos), que dependen de tus experimentos finales.}
+
+\section{Conclusiones}
+{\color{revcolor}
+[Pendiente de redacción por el autor: síntesis de resultados (93\% de estabilización, 88\% de cumplimiento de tasa de decaimiento), cumplimiento de objetivos y aporte principal de la arquitectura LMI-Net.]
+}
+
+\section{Trabajo Futuro}
+{\color{revcolor}
+El alcance definitivo de la memoria no se encuentra completamente cerrado a la fecha de este avance. Las líneas que se describen a continuación constituyen extensiones que se intentará desarrollar en función del tiempo y los recursos disponibles, priorizadas según su impacto sobre las limitaciones documentadas en el Capítulo de experimentos.}
+
+\subsection{Algoritmos de proyección alternativos a Douglas--Rachford}
+{\color{revcolor}
+El esquema de Douglas--Rachford (DR) empleado presenta dos limitaciones documentadas en el Capítulo de experimentos: (i) requiere del orden de miles de iteraciones para alcanzar factibilidad estricta en inferencia, y (ii) su desenrollado para el pase hacia atrás agota la memoria, obligando a truncar el entrenamiento a $\sim 30$ iteraciones (el ``Gap de Entrenamiento''). Una línea de trabajo consiste en evaluar esquemas de proyección alternativos, todos compatibles con la descomposición en el conjunto afín $C_1$ y el cono PSD $C_2$. A modo de ejemplo, se identifican las siguientes opciones:
+
+\begin{itemize}
+    \item \textbf{Algoritmo de Dykstra.} A diferencia de DR ---que con su paso de relajación entrega \emph{algún} punto factible de $C_1 \cap C_2$---, el algoritmo de Dykstra converge exactamente a la \emph{proyección euclidiana} sobre la intersección \cite{boyle1986dykstra, bauschke1994dykstra}, que es justamente la operación $\Pi_{\mathcal{C}}(\hat{y}_\theta)$ definida en la Ecuación~\eqref{eq:proyeccion}. Es decir, es matemáticamente más fiel al objetivo declarado de la capa. Su costo por iteración es equivalente al de DR (una proyección afín por mínimos cuadrados más un recorte espectral); además, como $C_1$ es un subespacio afín, el término de corrección de Dykstra para esa proyección se anula, simplificando la implementación. La factibilidad estricta del problema (garantizada por la construcción ``robustamente estabilizable'' de la base de datos) asegura que $C_1 \cap C_2 \neq \emptyset$, condición suficiente para la convergencia de Dykstra.
+
+    \item \textbf{Diferenciación implícita en el pase hacia atrás.} De forma ortogonal al algoritmo de proyección, se recomienda reemplazar el desenrollado algorítmico por \emph{diferenciación implícita} basada en el Teorema de la Función Implícita, al estilo de los \textit{Deep Equilibrium Models} \cite{bai2019deq} y las \textit{Deep Declarative Networks} \cite{gould2021ddn}. El gradiente se calcula analíticamente en el punto fijo $y^*$ resolviendo un único sistema lineal, sin almacenar las iteraciones intermedias. Esto rompe el acoplamiento entre profundidad de iteración y memoria: permite iterar hasta convergencia profunda (miles de pasos) tanto en entrenamiento como en inferencia, \emph{eliminando de raíz el Gap de Entrenamiento} descrito en la Sección~\ref{sec:limitaciones_experimentos}.
+
+    \item \textbf{ADMM.} El método de direcciones alternadas de multiplicadores es equivalente a DR aplicado al dual \cite{boyd2011admm}; ofrece la misma estructura de dos proyecciones pero con un mejor condicionamiento práctico en muchos problemas de programación semidefinida, y dispone de variantes con paso adaptativo.
+
+    \item \textbf{Aceleración (Halpern / Anderson).} Si se desea conservar DR, aplicar iteración de Halpern o aceleración de Anderson sobre el operador de DR puede reducir el número de iteraciones de miles a decenas, atacando directamente la limitación (i).
+
+    \item \textbf{Davis--Yin (tres operadores).} El esquema de tres operadores ya referenciado en el marco teórico \cite{davis2017convergence} permite incorporar un tercer conjunto convexo (por ejemplo, una cota sobre el esfuerzo de control $\lVert Y \rVert$) sin re-derivar el método, habilitando criterios de desempeño compuestos.
+\end{itemize}
+}
+
+\subsection{Nuevos criterios de desempeño basados en los datos disponibles}
+{\color{revcolor}
+La base de datos solo provee, por sistema, las matrices de vértice $A_i, B_i$ y una ganancia de referencia $K_\text{ref}$. A partir de estas y de las salidas de la red ($Q$, $Y$, con $K = YQ^{-1}$, $P = Q^{-1}$, $A_{cl,i} = A_i + B_i K$) se pueden formular los siguientes criterios sin necesidad de datos adicionales:
+
+\begin{enumerate}
+    \item \textbf{Esfuerzo de control.} Penalizar ganancias agresivas (que saturan actuadores) minimizando $\mathcal{L}_K = \lVert K \rVert_F^2 = \lVert Y Q^{-1} \rVert_F^2$. Es el criterio más barato y solo usa $Q, Y$. Ya aparece como término auxiliar en la \texttt{RobustControlLoss} actual; se propone formalizarlo y reportarlo como métrica.
+
+    \item \textbf{Costo cuadrático garantizado (tipo $\mathcal{H}_2$/LQ).} Minimizar una cota superior del costo $\int_0^\infty (x^T Q_x x + u^T R u)\,dt$ con pesos de diseño $Q_x \succeq 0$, $R \succ 0$ elegidos por el ingeniero. Bajo el cambio de variable estándar, se traduce en minimizar $\operatorname{tr}(Q_x Q) + \operatorname{tr}(R\, Y Q^{-1} Y^T)$ sujeto a la LMI de estabilidad. Conecta directamente la memoria con el control óptimo clásico.
+
+    \item \textbf{Atenuación de perturbaciones $\mathcal{H}_\infty$ ($\gamma$).} Aunque la base no incluye canal de perturbación, se puede \emph{definir} uno canónico ($B_w = I$ y salida regulada $z = [\,x;\ \rho u\,]$ con peso $\rho$) y minimizar la ganancia $\gamma$ mediante el Lema Real Acotado en forma LMI. Provee un criterio de desempeño robusto frente al peor caso energético, mencionado en el marco teórico pero aún no implementado.
+
+    \item \textbf{Condicionamiento del elipsoide ($\kappa(Q)$).} Minimizar $\kappa(Q) = \lambda_{\max}(Q)/\lambda_{\min}(Q)$ produce elipsoides invariantes bien condicionados (cercanos a esféricos), con transitorios uniformes y mejor estabilidad numérica. Ataca directamente el problema de condicionamiento reportado en la Sección~\ref{sec:limitaciones_experimentos} y solo depende de $Q$.
+
+    \item \textbf{Margen de factibilidad robusta.} En lugar de fijar $\alpha$, maximizar el margen $t$ tal que $F_i(y) \succeq t\,I$ para todo vértice $i$. Entrena explícitamente la cantidad que mide la evaluación (el peor autovalor en lazo cerrado), y usa solo $A_i, B_i, Q, Y$.
+
+    \item \textbf{Aprovechamiento de $K_\text{ref}$ (criterio relativo / supervisado).} La ganancia de referencia hoy se ignora. Se propone (a) usarla como \emph{línea base} para reportar mejora relativa del criterio optimizado respecto al controlador clásico, y/o (b) añadir un regularizador de imitación $\lambda \lVert K - K_\text{ref} \rVert_F^2$ que estabilice el entrenamiento temprano sin sacrificar el paradigma auto-supervisado.
+\end{enumerate}
+}

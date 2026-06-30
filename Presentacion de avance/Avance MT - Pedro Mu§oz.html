@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avance Memoria de Título — Pedro Muñoz · UdeC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' },
+  startup: { typeset: true }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+  deck-stage:not(:defined){visibility:hidden}
+  :root{
+    --blue:#003A70; --blue2:#1763A6; --navy:#07223D; --navy2:#0C2C4C;
+    --bg:#F5F4F0; --panel:#FFFFFF; --panel2:#ECEBE4; --line:#D7D5CC;
+    --ink:#16202E; --muted:#5B6573;
+    --cyan:#0E8FA8; --green:#1E8E5A; --amber:#B5840E; --red:#B23A2E; --gray:#737B86;
+    --type-title:58px; --type-subtitle:38px; --type-body:30px; --type-small:26px; --type-micro:24px;
+    --pad-top:84px; --pad-bottom:66px; --pad-x:92px;
+    --gap-title:36px; --gap-item:22px;
+  }
+  *{box-sizing:border-box}
+  deck-stage section{
+    padding:var(--pad-top) var(--pad-x) var(--pad-bottom);
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:var(--type-body);
+    display:flex; flex-direction:column;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* ---- header ---- */
+  .shead{display:flex;flex-direction:column;gap:14px;border-bottom:2px solid var(--blue);padding-bottom:20px;margin-bottom:var(--gap-title);flex:0 0 auto}
+  .eyebrow{display:flex;align-items:center;gap:14px;font-family:'IBM Plex Mono',monospace;font-size:var(--type-micro);letter-spacing:.08em;text-transform:uppercase;color:var(--blue2)}
+  .eyebrow .sq{width:11px;height:11px;background:var(--cyan);flex:0 0 auto}
+  .eyebrow .num{margin-left:auto;color:var(--gray);letter-spacing:.12em}
+  .title{font-size:var(--type-title);font-weight:600;line-height:1.05;letter-spacing:-.012em;margin:0;color:var(--ink)}
+  .title .em{color:var(--blue)}
+  .body-area{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:var(--gap-item)}
+  .body-area.top{justify-content:flex-start}
+  p{margin:0;line-height:1.4}
+  .lead{font-size:var(--type-body);color:var(--ink);max-width:1500px}
+  .muted{color:var(--muted)}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  /* ---- closer (flat emphasis, no accent-card) ---- */
+  .closer{font-size:var(--type-subtitle);font-weight:500;line-height:1.22;color:var(--blue);letter-spacing:-.01em;max-width:1560px}
+  .closer .hl{background:linear-gradient(transparent 62%, color-mix(in srgb, var(--cyan) 26%, transparent) 0);padding:0 .04em}
+  .quote{font-family:'IBM Plex Serif',serif;font-style:italic}
+  /* ---- two columns ---- */
+  .cols{display:grid;gap:48px;align-items:start}
+  .cols-2{grid-template-columns:1fr 1fr}
+  .cols-7-5{grid-template-columns:1.4fr 1fr}
+  .col-h{font-family:'IBM Plex Mono',monospace;font-size:var(--type-small);text-transform:uppercase;letter-spacing:.06em;color:var(--blue2);margin-bottom:18px;display:flex;align-items:center;gap:12px}
+  .col-h .sq{width:10px;height:10px;flex:0 0 auto}
+  /* ---- cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:30px}
+  .card{background:var(--panel);border:1px solid var(--line);padding:34px 32px;display:flex;flex-direction:column;gap:14px}
+  .card .ic{width:46px;height:46px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:24px}
+  .card h4{margin:0;font-size:var(--type-body);font-weight:600;color:var(--ink);line-height:1.15}
+  .card p{font-size:var(--type-small);color:var(--muted);line-height:1.34}
+  /* ---- equation box ---- */
+  .eqbox{background:var(--panel);border:1px solid var(--line);padding:30px 38px;display:flex;flex-direction:column;gap:12px}
+  .eqbox.tight{padding:22px 32px}
+  .eqlabel{font-family:'IBM Plex Mono',monospace;font-size:var(--type-micro);text-transform:uppercase;letter-spacing:.06em;color:var(--blue2)}
+  mjx-container{font-size:118% !important}
+  mjx-container[display="true"]{margin:6px 0 !important}
+  .eqbox mjx-container{font-size:132% !important}
+  /* ---- bullets ---- */
+  ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--gap-item)}
+  ul.list li{position:relative;padding-left:42px;font-size:var(--type-body);line-height:1.34}
+  ul.list li::before{content:"";position:absolute;left:0;top:.5em;width:14px;height:14px;background:var(--blue)}
+  ul.list.cyan li::before{background:var(--cyan)}
+  ul.list li .k{font-weight:600;color:var(--blue)}
+  ul.list.sm li{font-size:var(--type-small);padding-left:36px}
+  ul.list.sm li::before{width:11px;height:11px;top:.45em}
+  /* ---- numbered ---- */
+  ol.steps{list-style:none;margin:0;padding:0;counter-reset:s;display:flex;flex-direction:column;gap:18px}
+  ol.steps li{position:relative;padding-left:62px;font-size:var(--type-small);line-height:1.34;counter-increment:s}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:40px;height:40px;background:var(--blue);color:#fff;font-family:'IBM Plex Mono',monospace;font-weight:600;display:flex;align-items:center;justify-content:center;font-size:22px}
+  ol.steps li .k{font-weight:600;color:var(--ink)}
+  /* ---- table ---- */
+  table.tbl{width:100%;border-collapse:collapse;font-size:var(--type-small)}
+  table.tbl th{background:var(--blue);color:#fff;text-align:left;padding:16px 20px;font-weight:600;font-size:var(--type-micro);letter-spacing:.02em;vertical-align:middle}
+  table.tbl td{padding:15px 20px;border-bottom:1px solid var(--line);vertical-align:middle;line-height:1.28}
+  table.tbl tr:nth-child(even) td{background:#EFEEE8}
+  table.tbl .hi{font-weight:600;color:var(--blue)}
+  table.tbl .ref{font-family:'IBM Plex Mono',monospace;font-size:var(--type-micro);color:var(--muted)}
+  table.tbl tr.feat td{background:#E4ECF4}
+  table.tbl tr.feat td{border-bottom:1px solid #C5D4E4}
+  .ok{color:var(--green);font-weight:600}
+  .warn{color:var(--amber);font-weight:600}
+  .bad{color:var(--red);font-weight:600}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:var(--type-micro);padding:4px 12px;border:1px solid currentColor;line-height:1.1}
+  /* ---- big metric ---- */
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
+  .metric .big{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:104px;line-height:.95;letter-spacing:-.02em;color:var(--blue)}
+  .metric .big.green{color:var(--green)}
+  .metric .lbl{font-size:var(--type-small);color:var(--muted);margin-top:12px;line-height:1.3;max-width:380px}
+  /* ---- diagram blocks ---- */
+  .flow{display:flex;align-items:stretch;gap:24px}
+  .fbox{flex:1;background:var(--panel);border:1px solid var(--line);padding:26px 26px;display:flex;flex-direction:column;gap:14px}
+  .fbox.dark{background:var(--navy);border-color:var(--navy);color:#EAF1F8}
+  .fbox h5{margin:0;font-family:'IBM Plex Mono',monospace;font-size:var(--type-micro);text-transform:uppercase;letter-spacing:.05em}
+  .arrow{display:flex;align-items:center;justify-content:center;font-size:46px;color:var(--blue2);font-weight:300}
+  .chip{font-family:'IBM Plex Mono',monospace;font-size:var(--type-micro);background:var(--panel2);border:1px solid var(--line);padding:9px 14px;color:var(--ink)}
+  .fbox.dark .chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#EAF1F8}
+  /* ---- dark variants ---- */
+  section.dark{background:var(--navy);color:#EAF1F8}
+  section.dark .title{color:#fff}
+  section.dark .shead{border-color:var(--cyan)}
+  section.dark .lead{color:#D4DEEA}
+  section.dark .closer{color:#fff}
+  /* ---- cover ---- */
+  section.cover{background:var(--navy);color:#fff;padding:96px 110px;justify-content:space-between}
+  .cover-top{display:flex;align-items:center;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:var(--type-small);letter-spacing:.06em;color:#9FB6CC}
+  .cover-logo{width:160px;height:78px;border:1px dashed rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:24px;color:#9FB6CC;text-align:center;line-height:1.2}
+  deck-stage svg text{font-size:24px;font-weight:500}
+  .cover-kicker{font-family:'IBM Plex Mono',monospace;font-size:var(--type-body);text-transform:uppercase;letter-spacing:.14em;color:var(--cyan);margin-bottom:30px}
+  .cover-title{font-size:64px;font-weight:600;line-height:1.1;letter-spacing:-.015em;max-width:1500px;color:#fff}
+  .cover-sub{font-family:'IBM Plex Serif',serif;font-style:italic;font-size:var(--type-subtitle);color:#C3D2E2;margin-top:28px;max-width:1300px;line-height:1.3}
+  .cover-meta{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;border-top:1px solid rgba(255,255,255,.18);padding-top:30px}
+  .cover-meta .who .nm{font-size:var(--type-body);font-weight:600;color:#fff}
+  .cover-meta .who .rl{font-size:var(--type-small);color:#9FB6CC;margin-top:6px}
+  .cover-meta .guides{font-size:var(--type-small);color:#C3D2E2;text-align:right;line-height:1.5}
+  .cover-meta .guides b{color:#fff;font-weight:600}
+  /* ---- divider ---- */
+  section.divider{background:var(--navy);color:#fff;justify-content:center;padding:var(--pad-top) 110px}
+  .div-num{font-family:'IBM Plex Mono',monospace;font-size:var(--type-body);letter-spacing:.2em;color:var(--cyan)}
+  .div-title{font-size:84px;font-weight:600;letter-spacing:-.015em;line-height:1.02;margin-top:18px;max-width:1400px}
+  .div-list{margin-top:48px;display:flex;flex-direction:column;gap:12px;max-width:900px}
+  .div-list .d{display:flex;gap:22px;font-size:var(--type-small);color:#7E97AE;font-family:'IBM Plex Mono',monospace}
+  .div-list .d.on{color:#fff}
+  .div-list .d .n{color:var(--cyan)}
+  /* ---- big question ---- */
+  .qmark{font-family:'IBM Plex Serif',serif;font-size:var(--type-subtitle);color:var(--cyan);margin-bottom:30px}
+  .bigq{font-size:54px;font-weight:500;line-height:1.26;letter-spacing:-.01em;max-width:1560px;color:#fff}
+  .bigq u{text-decoration:none;color:var(--cyan);font-weight:600;border-bottom:3px solid var(--cyan);padding-bottom:2px}
+  .keychips{display:flex;gap:18px;margin-top:48px;flex-wrap:wrap}
+  .keychip{font-family:'IBM Plex Mono',monospace;font-size:var(--type-small);color:#fff;border:1px solid var(--cyan);padding:10px 22px}
+  /* ---- footnote ---- */
+  .fnote{font-size:var(--type-micro);color:var(--muted);line-height:1.34;font-family:'IBM Plex Sans',sans-serif}
+  .src{font-family:'IBM Plex Mono',monospace;font-size:var(--type-micro);color:var(--gray)}
+  .barwrap{display:flex;flex-direction:column;gap:18px}
+  .bar{display:grid;grid-template-columns:300px 1fr 120px;align-items:center;gap:22px}
+  .bar .bl{font-family:'IBM Plex Mono',monospace;font-size:var(--type-small);color:var(--ink)}
+  .bar .track{height:46px;background:var(--panel2);position:relative;overflow:hidden}
+  .bar .fill{height:100%;background:var(--blue)}
+  .bar.ref .fill{background:var(--amber)}
+  .bar .val{font-family:'IBM Plex Mono',monospace;font-size:var(--type-body);font-weight:600;text-align:right}
+</style>
+</head>
+<body>
+<deck-stage width="1920" height="1080">
+
+  <!-- ============ 01 · PORTADA ============ -->
+  <section class="cover" data-label="Portada">
+    <div class="cover-top">
+      <span>Universidad de Concepción · Facultad de Ingeniería · DIICC</span>
+      <div class="cover-logo">LOGO<br>UdeC</div>
+    </div>
+    <div>
+      <div class="cover-kicker">Presentación de Avance · Memoria de Título</div>
+      <h1 class="cover-title">Síntesis offline–online de controladores robustos para sistemas LPV politópicos</h1>
+      <p class="cover-sub">Un meta-controlador basado en Deep Learning con garantías de estabilidad por construcción</p>
+    </div>
+    <div class="cover-meta">
+      <div class="who">
+        <div class="nm">Pedro Pablo Muñoz Solano</div>
+        <div class="rl">Ingeniería Civil Informática · Mayo 2026</div>
+      </div>
+      <div class="guides">
+        Profesor Guía: <b>Hugo Garcés Hernández</b><br>
+        Profesor Co-Guía: <b>Jonathan Palma Olate</b>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 · CPS ============ -->
+  <section data-label="Sistemas ciberfísicos">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Introducción</span><span class="num">02</span></div>
+      <h2 class="title">Sistemas ciberfísicos y la exigencia de estabilidad</h2>
+    </header>
+    <div class="body-area top">
+      <p class="lead"><span class="mono" style="color:var(--blue);font-weight:600">CPS</span> = computación + comunicación + control + procesos físicos. Un error de software se traduce en <b>daño físico real</b>.</p>
+      <div class="cards" style="margin-top:8px">
+        <div class="card">
+          <div class="ic" style="background:var(--amber)">!</div>
+          <h4>Apagón de Norteamérica, 2003</h4>
+          <p>50 millones de personas sin suministro por una inestabilidad de control en cascada.</p>
+        </div>
+        <div class="card">
+          <div class="ic" style="background:var(--red)">⚡</div>
+          <h4>Ciberataques a actuadores</h4>
+          <p>Ataques FDI / DoS modifican los parámetros efectivos de la planta en operación.</p>
+        </div>
+        <div class="card">
+          <div class="ic" style="background:var(--blue)">∿</div>
+          <h4>Plantas de parámetros variables</h4>
+          <p>Microgrids, vehículos autónomos y plantas con desgaste cambian en milisegundos.</p>
+        </div>
+      </div>
+      <p class="closer" style="margin-top:14px">Una mala decisión de control no es un bug: <span class="hl">es daño físico</span>.</p>
+    </div>
+  </section>
+
+  <!-- ============ 03 · LPV POLITÓPICO ============ -->
+  <section data-label="LPV politópicos">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Introducción</span><span class="num">03</span></div>
+      <h2 class="title">Sistemas LPV politópicos y la barrera computacional</h2>
+    </header>
+    <div class="body-area">
+      <div class="cols cols-2">
+        <div>
+          <div class="col-h"><span class="sq" style="background:var(--cyan)"></span>Geometría del polítopo</div>
+          <svg viewBox="0 0 520 360" style="width:100%;max-width:520px;height:auto">
+            <polygon points="90,60 430,40 470,250 220,330 60,210" fill="#E4ECF4" stroke="#003A70" stroke-width="2"/>
+            <g fill="#003A70">
+              <circle cx="90" cy="60" r="7"/><circle cx="430" cy="40" r="7"/>
+              <circle cx="470" cy="250" r="7"/><circle cx="220" cy="330" r="7"/><circle cx="60" cy="210" r="7"/>
+            </g>
+            <g font-family="IBM Plex Mono" font-size="20" fill="#003A70">
+              <text x="64" y="48">A₁</text><text x="442" y="36">A₂</text>
+              <text x="482" y="256">A₃</text><text x="226" y="354">A₄</text><text x="20" y="214">A₅</text>
+            </g>
+            <path d="M150,150 C220,120 300,200 360,150 C300,230 240,180 190,240" fill="none" stroke="#0E8FA8" stroke-width="3" stroke-dasharray="2 8" stroke-linecap="round"/>
+            <circle cx="190" cy="240" r="6" fill="#0E8FA8"/>
+            <text x="200" y="238" font-family="IBM Plex Mono" font-size="20" fill="#0E8FA8">ξ(t)</text>
+          </svg>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div class="eqbox tight">
+            <span class="eqlabel">Sistema LPV</span>
+            <div>$$\dot{x}(t)=A(\xi(t))\,x(t)+B(\xi(t))\,u(t)$$</div>
+          </div>
+          <div class="eqbox tight">
+            <span class="eqlabel">Estabilidad cuadrática</span>
+            <div>$$P\succ 0,\quad A(\xi)^{\!\top} P + P A(\xi)\prec 0,\ \forall\,\xi\in\Xi$$</div>
+          </div>
+          <p class="lead" style="font-size:var(--type-small)">Si la dependencia es <b>afín</b> en \(\xi\), las infinitas restricciones se reducen a <b>\(N\) LMIs</b> evaluadas en los vértices.</p>
+        </div>
+      </div>
+      <p class="closer" style="margin-top:8px">Resolver \(N\) LMIs en línea con punto interior escala como <span class="hl">\(\mathcal{O}(m^3)\)</span> — impracticable para CPS modernos.</p>
+    </div>
+  </section>
+
+  <!-- ============ 04 · PREGUNTA ============ -->
+  <section class="dark" data-label="Pregunta de investigación">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Introducción</span><span class="num">04</span></div>
+      <h2 class="title">Pregunta de investigación</h2>
+    </header>
+    <div class="body-area">
+      <p class="qmark">¿—?</p>
+      <p class="bigq">¿Es posible <u>aprender</u>, en una fase <u>offline</u> barata, un mapping de sistemas LPV politópicos a controladores robustos válidos, de modo que la evaluación online se reduzca a una inferencia rápida que cumpla <u>por construcción</u> todas las restricciones matriciales de estabilidad?</p>
+      <div class="keychips">
+        <span class="keychip">aprende</span>
+        <span class="keychip">por construcción</span>
+        <span class="keychip">offline – online</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DIVIDER I ============ -->
+  <section class="divider" data-label="I · Marco teórico">
+    <div class="div-num">PARTE I</div>
+    <h2 class="div-title">Marco teórico esencial</h2>
+    <div class="div-list">
+      <div class="d on"><span class="n">05</span><span>Lyapunov: energía virtual y disipación</span></div>
+      <div class="d on"><span class="n">06</span><span>De BMI a LMI: síntesis por congruencia</span></div>
+      <div class="d on"><span class="n">07</span><span>Proyección sobre la intersección de convexos</span></div>
+      <div class="d on"><span class="n">08</span><span>Estado del arte: restricciones duras en redes</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 05 · LYAPUNOV ============ -->
+  <section data-label="Lyapunov">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Marco teórico</span><span class="num">05</span></div>
+      <h2 class="title">Lyapunov: energía virtual y disipación</h2>
+    </header>
+    <div class="body-area">
+      <div class="cols cols-2">
+        <div>
+          <div class="col-h"><span class="sq" style="background:var(--cyan)"></span>El "tazón" cuadrático \(V(x)=x^{\top}Px\)</div>
+          <svg viewBox="0 0 520 340" style="width:100%;max-width:520px;height:auto">
+            <ellipse cx="260" cy="250" rx="230" ry="58" fill="#E4ECF4" stroke="#C5D4E4"/>
+            <ellipse cx="260" cy="200" rx="168" ry="42" fill="none" stroke="#9DB7D4" stroke-width="1.5"/>
+            <ellipse cx="260" cy="158" rx="110" ry="28" fill="none" stroke="#5C86B4" stroke-width="1.5"/>
+            <ellipse cx="260" cy="124" rx="58" ry="15" fill="none" stroke="#003A70" stroke-width="1.5"/>
+            <path d="M70,120 Q260,300 450,120" fill="none" stroke="#003A70" stroke-width="2.5"/>
+            <path d="M120,95 C200,150 210,210 258,250 C300,232 290,210 262,250" fill="none" stroke="#0E8FA8" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="120" cy="95" r="7" fill="#0E8FA8"/>
+            <circle cx="262" cy="250" r="7" fill="#003A70"/>
+            <text x="92" y="88" font-family="IBM Plex Mono" font-size="19" fill="#0E8FA8">x₀</text>
+            <text x="276" y="256" font-family="IBM Plex Mono" font-size="19" fill="#003A70">0</text>
+          </svg>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div class="eqbox tight">
+            <span class="eqlabel">Candidata</span>
+            <div>$$V(x)=x^{\top}Px,\qquad P\succ 0$$</div>
+          </div>
+          <div class="eqbox tight">
+            <span class="eqlabel">Disipación</span>
+            <div>$$\dot V(x)=x^{\top}(A^{\top}P+PA)\,x<0,\ \forall x\neq 0$$</div>
+          </div>
+          <div class="eqbox tight">
+            <span class="eqlabel">Condición algebraica equivalente</span>
+            <div>$$A^{\top}P+PA\prec 0$$</div>
+          </div>
+        </div>
+      </div>
+      <p class="closer" style="margin-top:6px">Una matriz \(P\) define una métrica; cumplir Lyapunov significa que esa métrica <span class="hl">decrece a lo largo de toda trayectoria</span>.</p>
+    </div>
+  </section>
+
+  <!-- ============ 06 · BMI -> LMI ============ -->
+  <section data-label="BMI → LMI">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Marco teórico</span><span class="num">06</span></div>
+      <h2 class="title">De BMI a LMI: síntesis por congruencia</h2>
+    </header>
+    <div class="body-area">
+      <div class="flow" style="align-items:stretch">
+        <div class="fbox">
+          <h5 style="color:var(--blue2)">Paso 1 · Lazo cerrado</h5>
+          <p style="font-size:var(--type-small);color:var(--muted);line-height:1.3">Con realimentación \(u=Kx\):</p>
+          <div>$$\dot x=(A+BK)\,x$$</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="fbox" style="border-color:var(--amber)">
+          <h5 style="color:var(--amber)">Paso 2 · BMI (no convexa)</h5>
+          <div>$$(A{+}BK)^{\top}P+P(A{+}BK)\prec 0$$</div>
+          <p style="font-size:var(--type-micro);color:var(--red);line-height:1.3">\(P\) y \(K\) aparecen multiplicadas → bilineal, intratable.</p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="fbox" style="border-color:var(--green)">
+          <h5 style="color:var(--green)">Paso 3 · LMI convexa</h5>
+          <p style="font-size:var(--type-micro);color:var(--muted);line-height:1.3">Congruencia \(Q=P^{-1},\ Y=KQ\):</p>
+          <div>$$AQ+QA^{\top}+BY+Y^{\top}B^{\top}\prec 0$$</div>
+          <p style="font-size:var(--type-micro);color:var(--green);line-height:1.3">Lineal en \((Q,Y)\), con \(Q\succ 0\). ✓</p>
+        </div>
+      </div>
+      <p class="closer" style="margin-top:18px">Para LPV politópico la condición se replica en cada vértice \((A_i,B_i)\) con <span class="hl">un único par \((Q,Y)\) común</span>.</p>
+      <p class="src">Transformación conocida desde Boyd et al., 1994.</p>
+    </div>
+  </section>
+
+  <!-- ============ 07 · PROYECCIÓN ============ -->
+  <section data-label="Proyección convexa">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Marco teórico</span><span class="num">07</span></div>
+      <h2 class="title">Proyección sobre la intersección de convexos</h2>
+    </header>
+    <div class="body-area">
+      <div class="cols cols-7-5">
+        <div style="display:flex;flex-direction:column;gap:22px">
+          <div class="eqbox tight">
+            <span class="eqlabel">Proyección euclidiana sobre \(\mathcal{C}\)</span>
+            <div>$$\Pi_{\mathcal{C}}(\hat y)=\arg\min_{z\in\mathcal{C}}\tfrac12\|\hat y-z\|_2^2$$</div>
+          </div>
+          <p class="lead" style="font-size:var(--type-small)">Si \(\mathcal{C}=C_1\cap C_2\), proyectar sobre \(\mathcal{C}\) <b>directamente</b> puede ser intratable, pero proyectar sobre cada \(C_i\) <b>por separado</b> es barato.</p>
+          <p class="lead" style="font-size:var(--type-small)"><b class="mono" style="color:var(--blue)">Splitting methods</b> (Douglas–Rachford, Dykstra, ADMM…) alternan proyecciones individuales y las combinan con un esquema de relajación.</p>
+        </div>
+        <div>
+          <svg viewBox="0 0 420 380" style="width:100%;height:auto">
+            <path d="M40,300 C120,180 260,170 380,250 L380,360 L40,360 Z" fill="#E4ECF4" stroke="#003A70" stroke-width="2"/>
+            <text x="56" y="340" font-family="IBM Plex Mono" font-size="20" fill="#003A70">𝒞</text>
+            <circle cx="210" cy="70" r="8" fill="#B23A2E"/>
+            <text x="224" y="66" font-family="IBM Plex Mono" font-size="20" fill="#B23A2E">ŷ</text>
+            <circle cx="205" cy="200" r="8" fill="#1E8E5A"/>
+            <text x="150" y="205" font-family="IBM Plex Mono" font-size="20" fill="#1E8E5A">Π(ŷ)</text>
+            <line x1="210" y1="78" x2="205" y2="192" stroke="#5B6573" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#ah)"/>
+            <defs><marker id="ah" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5B6573"/></marker></defs>
+          </svg>
+        </div>
+      </div>
+      <p class="closer" style="margin-top:6px">Esta familia de algoritmos es lo que permite que la capa sea <span class="hl">diferenciable y entrenable</span>.</p>
+    </div>
+  </section>
+
+  <!-- ============ 08 · ESTADO DEL ARTE ============ -->
+  <section data-label="Estado del arte">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Marco teórico</span><span class="num">08</span></div>
+      <h2 class="title">Estado del arte: restricciones duras en redes neuronales</h2>
+    </header>
+    <div class="body-area top">
+      <table class="tbl">
+        <thead>
+          <tr><th style="width:21%">Enfoque</th><th style="width:21%">Referencia</th><th>Restricción</th><th style="width:13%">Garantía</th><th style="width:23%">Limitación</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Solvers IPM (CVXPY/SCS)</td><td class="ref">Boyd et al. 1994</td><td>LMI / SDP general</td><td><span class="ok">Exacta</span></td><td>Lento (ms–s)</td></tr>
+          <tr><td>Warm-start aprendido</td><td class="ref">Sambharya 2023</td><td>Cualquier QP</td><td><span class="warn">Vía solver</span></td><td>Requiere solver online</td></tr>
+          <tr><td>RAYEN</td><td class="ref">Tordesillas 2023</td><td>Convexas lin./cuad.</td><td><span class="ok">Construcción</span></td><td>No aborda LMIs matriciales</td></tr>
+          <tr><td>HardNet</td><td class="ref">Min &amp; Azizan 2024</td><td>Generales</td><td><span class="ok">Construcción</span></td><td>No para LMIs acopladas</td></tr>
+          <tr><td>πNet (proy. ortogonal)</td><td class="ref">Grontas, ICLR 2026</td><td>Convexas c/ proyección</td><td><span class="ok">Construcción</span></td><td>Foco general, no LMIs</td></tr>
+          <tr class="feat"><td class="hi">LMI-Net</td><td class="ref" style="color:var(--blue)">Tang, Goertzen &amp; Azizan · MIT · arXiv 2026</td><td class="hi">LMIs por desc. afín + PSD</td><td><span class="ok">Construcción</span></td><td>Dimensionalidad fija</td></tr>
+        </tbody>
+      </table>
+      <p class="closer" style="font-size:var(--type-body);margin-top:6px">LMI-Net es la primera capa diferenciable que aborda directamente restricciones <span class="hl">LMI matriciales input-dependent</span>. Esta memoria la <b>adopta</b> y la aplica al problema politópico LPV.</p>
+    </div>
+  </section>
+
+  <!-- ============ 09 · EVOLUCIÓN ============ -->
+  <section data-label="Evolución de la idea">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Objetivos y posicionamiento</span><span class="num">09</span></div>
+      <h2 class="title">Evolución de la idea: de la propuesta al estado actual</h2>
+    </header>
+    <div class="body-area top">
+      <table class="tbl">
+        <thead>
+          <tr><th style="width:50%">Propuesta original (inicio)</th><th style="width:50%">Estado actual (avance)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Mapea <b>estados</b> → ganancias en tiempo real</td><td>Mapea <b>plantas</b> (matrices del sistema) → parametrización \((Q,Y)\) válida</td></tr>
+          <tr><td>Sistemas <b>discretos</b> \((x_{k+1}=Ax_k+Bu_k)\)</td><td>Sistemas <b>continuos</b> \((\dot x=Ax+Bu)\); LMI continua de Lyapunov</td></tr>
+          <tr><td>Penalización LMI tipo <i>soft constraint</i></td><td>Restricción <b>dura</b> por construcción vía capa LMI-Net</td></tr>
+          <tr><td>Arquitectura abierta</td><td>Concreta: <b>MLP + capa Douglas–Rachford</b> (Tang et al., 2026)</td></tr>
+          <tr><td>Esquema online único</td><td><b>Descomposición offline–online</b> explícita</td></tr>
+        </tbody>
+      </table>
+      <p class="closer" style="font-size:var(--type-body);margin-top:4px">El espíritu del meta-controlador se conserva. Lo que cambió fue <span class="hl">cómo se garantiza el dominio factible</span>: de penalización suave a proyección dura.</p>
+    </div>
+  </section>
+
+  <!-- ============ 10 · OBJETIVO GENERAL ============ -->
+  <section class="dark" data-label="Objetivo general">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Objetivos y posicionamiento</span><span class="num">10</span></div>
+      <h2 class="title">Objetivo general</h2>
+    </header>
+    <div class="body-area">
+      <p style="font-size:46px;font-weight:400;line-height:1.34;letter-spacing:-.008em;max-width:1600px;color:#EAF1F8">
+        Implementar y validar empíricamente un <b style="color:#fff">meta-controlador basado en Deep Learning</b> que sintetice controladores estabilizadores para una familia de sistemas <b style="color:#fff">LPV politópicos en tiempo continuo</b>, adoptando la capa de proyección diferenciable <b style="color:var(--cyan)">LMI-Net</b> sobre la división de Douglas–Rachford para garantizar <b style="color:var(--cyan)">por construcción</b> el cumplimiento de las desigualdades matriciales lineales de Lyapunov.
+      </p>
+      <p class="src" style="color:#7E97AE;margin-top:32px">Capa adoptada de Tang, Goertzen &amp; Azizan, 2026. El aporte original: aplicación al problema LPV politópico, análisis de limitaciones y extensiones.</p>
+    </div>
+  </section>
+
+  <!-- ============ 11 · OBJETIVOS ESPECÍFICOS ============ -->
+  <section data-label="Objetivos específicos">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Objetivos y posicionamiento</span><span class="num">11</span></div>
+      <h2 class="title">Objetivos específicos</h2>
+    </header>
+    <div class="body-area top">
+      <ol class="steps" style="gap:20px">
+        <li><span class="k">Pipeline reproducible</span> de extracción y preprocesamiento desde la BD UNICAMP (<span class="mono">.mat</span>) hacia tensores PyTorch en precisión doble, indexando por dimensión, actuadores y vértices.</li>
+        <li><span class="k">Implementar LMI-Net</span> sobre PyTorch con la capa de proyección Douglas–Rachford diferenciable, configurada para sistemas LPV politópicos en tiempo continuo.</li>
+        <li><span class="k">Formular criterios físicos</span> compatibles con los datos: maximización de la tasa de decaimiento \(\alpha\) y minimización del volumen del elipsoide invariante \(-\log\det Q\).</li>
+        <li><span class="k">Evaluar empíricamente</span>: (i) tasa de estabilización en sistemas no vistos, (ii) cumplimiento del margen \(\alpha\), (iii) tiempo de inferencia vs. CVXPY/SCS.</li>
+        <li><span class="k">Caracterizar críticamente las limitaciones</span> (gap de entrenamiento, condicionamiento numérico, rigidez dimensional) y delinear extensiones algorítmicas.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ DIVIDER II ============ -->
+  <section class="divider" data-label="II · Diseño de la solución">
+    <div class="div-num">PARTE II</div>
+    <h2 class="div-title">Diseño de la solución</h2>
+    <div class="div-list">
+      <div class="d on"><span class="n">12</span><span>La descomposición offline–online</span></div>
+      <div class="d on"><span class="n">13</span><span>Arquitectura LMI-Net</span></div>
+      <div class="d on"><span class="n">14</span><span>La capa LMI-Net en detalle</span></div>
+      <div class="d on"><span class="n">15</span><span>Criterios de desempeño y entrenamiento auto-supervisado</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 12 · OFFLINE-ONLINE ============ -->
+  <section data-label="Offline–online">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Diseño de la solución</span><span class="num">12</span></div>
+      <h2 class="title">La descomposición offline–online</h2>
+    </header>
+    <div class="body-area">
+      <div class="flow" style="align-items:stretch;gap:36px">
+        <div class="fbox" style="flex:1.05;border-color:var(--blue);border-width:2px">
+          <h5 style="color:var(--blue2);font-size:var(--type-small)">OFFLINE · caro</h5>
+          <div class="chip">Base de datos UNICAMP — 500 sistemas RS</div>
+          <div style="text-align:center;color:var(--blue2);font-size:30px">↓</div>
+          <div class="chip">Entrenamiento auto-supervisado · 50 épocas · 30 iter DR</div>
+          <div style="text-align:center;color:var(--blue2);font-size:30px">↓</div>
+          <div class="chip" style="border-color:var(--blue);color:var(--blue);font-weight:600">Modelo θ* aprendido</div>
+          <p style="font-size:var(--type-micro);color:var(--muted);margin-top:auto;padding-top:8px">Costo: <b>horas en GPU</b></p>
+        </div>
+        <div class="arrow" style="font-size:54px">→</div>
+        <div class="fbox dark" style="flex:1.05">
+          <h5 style="color:var(--cyan);font-size:var(--type-small)">ONLINE · barato</h5>
+          <div class="chip">Nueva planta \((A_i,B_i)\)</div>
+          <div style="text-align:center;color:var(--cyan);font-size:30px">↓</div>
+          <div class="chip">Inferencia MLP → Capa de proyección DR</div>
+          <div style="text-align:center;color:var(--cyan);font-size:30px">↓</div>
+          <div class="chip" style="border-color:var(--green);color:#8FE9BD;font-weight:600">\((Q,Y)\) factible ✓ → \(K=Y\,Q^{-1}\)</div>
+          <p style="font-size:var(--type-micro);color:#9FB6CC;margin-top:auto;padding-top:8px">Costo: <b style="color:#fff">µs–ms por instancia</b></p>
+        </div>
+      </div>
+      <p class="closer" style="margin-top:18px">El paradigma no es "tiempo real estricto"; es <span class="hl">amortización</span>: pagar una vez offline para servir muchas veces online.</p>
+    </div>
+  </section>
+
+  <!-- ============ 13 · ARQUITECTURA ============ -->
+  <section data-label="Arquitectura LMI-Net">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Diseño de la solución</span><span class="num">13</span></div>
+      <h2 class="title">Arquitectura LMI-Net</h2>
+    </header>
+    <div class="body-area">
+      <div style="display:flex;align-items:center;justify-content:center;gap:30px">
+        <div style="display:flex;flex-direction:column;gap:9px;flex:1;max-width:440px">
+          <div class="chip" style="text-align:center;background:var(--panel);border-color:var(--blue);color:var(--blue);font-weight:600;padding:13px">Sistema LPV: \(A_i,\,B_i\) → 24 features</div>
+          <div style="text-align:center;color:var(--blue2);font-size:22px;line-height:1">↓</div>
+          <div class="fbox" style="gap:5px;padding:16px 22px">
+            <h5 style="color:var(--blue2)">MLP backbone</h5>
+            <div class="mono" style="font-size:var(--type-small);color:var(--ink)">24 → 128 → 128 → 9</div>
+            <div class="mono" style="font-size:var(--type-micro);color:var(--muted)">Mish + LayerNorm</div>
+          </div>
+          <div style="text-align:center;color:var(--blue2);font-size:var(--type-micro);line-height:1.1">↓&nbsp;&nbsp;ŷ · 9 params crudos</div>
+          <div class="fbox" style="border-color:var(--cyan);border-width:2px;background:#EAF6F8;gap:7px;padding:16px 22px">
+            <h5 style="color:var(--cyan)">CAPA LMI-Net <span style="color:var(--muted);text-transform:none;font-weight:400">· Tang, Goertzen &amp; Azizan 2026</span></h5>
+            <div class="chip" style="border-color:var(--cyan)">Lifting: \(C_1\) (afín) \(\cap\) \(C_2\) (cono PSD)</div>
+            <div class="chip" style="border-color:var(--cyan)">Forward: Douglas–Rachford iterativo</div>
+            <div class="chip" style="border-color:var(--cyan)">Backward: Algorithm Unrolling</div>
+          </div>
+          <div style="text-align:center;color:var(--green);font-size:var(--type-micro);line-height:1.1">↓&nbsp;&nbsp;y* · 9 params factibles ✓</div>
+          <div class="chip" style="text-align:center;background:var(--panel);border-color:var(--green);color:var(--green);font-weight:600;padding:13px">\([Q,Y]\to K=Y\,Q^{-1}\) → Controlador</div>
+        </div>
+        <div style="flex:0 0 380px;border-left:1px solid var(--line);padding-left:38px;align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:24px">
+          <p class="closer" style="font-size:36px">El MLP <span class="hl">propone</span>; la capa LMI-Net <span class="hl">dispone</span>.</p>
+          <p class="lead" style="font-size:var(--type-small);color:var(--muted)">Toda salida cae, por construcción, en el conjunto factible. Las 24 features son los dos vértices del polítopo aplanados.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 14 · CAPA EN DETALLE ============ -->
+  <section data-label="Capa LMI-Net en detalle">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Diseño de la solución</span><span class="num">14</span></div>
+      <h2 class="title">La capa LMI-Net en detalle: lifting y proyección</h2>
+    </header>
+    <div class="body-area">
+      <div class="cols cols-7-5">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="eqbox tight">
+            <span class="eqlabel">Paso 1 · Lifting — variable auxiliar \(X\)</span>
+            <div style="font-size:var(--type-small)">$$C_1=\{(y,X):F_0+\textstyle\sum_i y_iF_i=X\}$$ $$C_2=\{(y,X):X\succeq\epsilon I\}$$</div>
+            <p style="font-size:var(--type-micro);color:var(--muted)">\(C_1\): subespacio afín · \(C_2\): cono PSD desplazado.</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="fbox" style="padding:18px 22px;gap:6px">
+              <h5 style="color:var(--blue2)">Paso 2 · Forward — Douglas–Rachford</h5>
+              <p style="font-size:var(--type-micro);color:var(--ink);line-height:1.32"><b>\(\Pi_{C_1}\):</b> mínimos cuadrados (pseudoinversa precomputable). &nbsp;<b>\(\Pi_{C_2}\):</b> descomposición espectral + recorte de autovalores \(<\epsilon\).</p>
+            </div>
+            <div class="fbox" style="padding:18px 22px;gap:6px">
+              <h5 style="color:var(--blue2)">Paso 3 · Backward — Algorithm unrolling</h5>
+              <p style="font-size:var(--type-micro);color:var(--ink);line-height:1.32">Cada iteración DR es una capa diferenciable; el gradiente fluye por la regla de la cadena a través del bucle desenrollado.</p>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <svg viewBox="0 0 400 400" style="width:100%;height:auto">
+            <line x1="20" y1="300" x2="380" y2="180" stroke="#003A70" stroke-width="2.5"/>
+            <text x="30" y="296" font-family="IBM Plex Mono" font-size="20" fill="#003A70">C₁ afín</text>
+            <path d="M120,360 C120,180 300,120 380,120 L380,360 Z" fill="#EAF6F8" stroke="#0E8FA8" stroke-width="2"/>
+            <text x="300" y="350" font-family="IBM Plex Mono" font-size="20" fill="#0E8FA8">C₂ PSD</text>
+            <polyline points="80,90 200,250 150,205 250,150 215,178 300,170" fill="none" stroke="#B5840E" stroke-width="2.5" stroke-dasharray="6 5"/>
+            <circle cx="80" cy="90" r="7" fill="#B23A2E"/><text x="56" y="84" font-family="IBM Plex Mono" font-size="19" fill="#B23A2E">ŷ</text>
+            <circle cx="300" cy="170" r="7" fill="#1E8E5A"/><text x="312" y="166" font-family="IBM Plex Mono" font-size="19" fill="#1E8E5A">y*</text>
+          </svg>
+          <p style="font-size:var(--type-micro);color:var(--muted);text-align:center;margin-top:10px">Trayectoria zigzag desde \(\hat y\) hasta \(y^\*\in C_1\cap C_2\).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 15 · CRITERIOS ============ -->
+  <section data-label="Criterios de desempeño">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Diseño de la solución</span><span class="num">15</span></div>
+      <h2 class="title">Criterios de desempeño y entrenamiento auto-supervisado</h2>
+    </header>
+    <div class="body-area">
+      <p class="lead"><b class="mono" style="color:var(--blue)">Auto-supervisado</b> — la red no imita un solver; optimiza directamente la métrica física.</p>
+      <div class="cols cols-2" style="gap:36px">
+        <div class="eqbox">
+          <span class="eqlabel" style="color:var(--green)">Criterio 1 · Tasa de decaimiento \(\alpha\)</span>
+          <div style="font-size:var(--type-small)">$$\mathcal{L}_\alpha=-\alpha$$ $$(A_iQ{+}B_iY)+(A_iQ{+}B_iY)^{\top}+2\alpha Q\prec 0$$</div>
+          <p style="font-size:var(--type-micro);color:var(--muted)">Maximizar la velocidad de disipación de energía.</p>
+        </div>
+        <div class="eqbox">
+          <span class="eqlabel" style="color:var(--green)">Criterio 2 · Volumen del elipsoide invariante</span>
+          <div>$$\mathcal{L}_{\text{vol}}=-\log\det(Q)$$</div>
+          <p style="font-size:var(--type-micro);color:var(--muted)">Minimizar la región de variación del estado bajo perturbaciones acotadas.</p>
+        </div>
+      </div>
+      <p class="closer" style="font-size:var(--type-body);margin-top:6px">La red <b>no requiere etiquetas</b>: el controlador \(K_{\text{ref}}\) de la BD se usa solo como <span class="hl">certificado de factibilidad</span>, no como objetivo de imitación.</p>
+    </div>
+  </section>
+
+  <!-- ============ DIVIDER III ============ -->
+  <section class="divider" data-label="III · Desarrollo y resultados">
+    <div class="div-num">PARTE III</div>
+    <h2 class="div-title">Desarrollo y resultados</h2>
+    <div class="div-list">
+      <div class="d on"><span class="n">16</span><span>Metodología y dataset UNICAMP</span></div>
+      <div class="d on"><span class="n">17</span><span>Resultados: estabilización</span></div>
+      <div class="d on"><span class="n">18</span><span>Resultados: velocidad de inferencia</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 16 · METODOLOGÍA ============ -->
+  <section data-label="Metodología y dataset">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Desarrollo y resultados</span><span class="num">16</span></div>
+      <h2 class="title">Metodología y dataset UNICAMP</h2>
+    </header>
+    <div class="body-area">
+      <div class="cols cols-2" style="gap:44px">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div>
+            <div class="col-h"><span class="sq" style="background:var(--cyan)"></span>Base de datos</div>
+            <p class="lead" style="font-size:var(--type-small)"><i>Robust Analysis Routines and Database of Stabilizable Polytopic Systems</i> — Oliveira &amp; Peres, UNICAMP. Benchmark estándar en control robusto LMI.</p>
+          </div>
+          <div>
+            <div class="col-h"><span class="sq" style="background:var(--cyan)"></span>Subconjunto (prueba de concepto)</div>
+            <ul class="list sm cyan">
+              <li>\(n_x=3\) estados · \(n_u=1\) actuador · \(N=2\) vértices</li>
+              <li>Split: <b>400 train / 100 test</b></li>
+            </ul>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div>
+            <div class="col-h"><span class="sq" style="background:var(--blue)"></span>Pipeline · 4 etapas</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="chip">lectura .mat</span><span style="color:var(--blue2)">→</span>
+              <span class="chip">vector 24 feats</span><span style="color:var(--blue2)">→</span>
+              <span class="chip">forward + DR</span><span style="color:var(--blue2)">→</span>
+              <span class="chip">backprop unrolling</span>
+            </div>
+          </div>
+          <div>
+            <div class="col-h"><span class="sq" style="background:var(--blue)"></span>Hiperparámetros</div>
+            <table class="tbl" style="font-size:var(--type-micro)">
+              <tbody>
+                <tr><td>Optimizador</td><td class="mono">Adam · lr \(10^{-3}\)</td></tr>
+                <tr><td>Épocas / batch</td><td class="mono">50 / 16</td></tr>
+                <tr><td>Iteraciones DR</td><td class="mono">30 (train) / 5000 (inferencia)</td></tr>
+                <tr><td>Precisión</td><td class="mono">FP64</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <p class="src">Dos vértices = un segmento de recta en el espacio paramétrico; dimensionalidad fija evita zero-padding que dañaría las propiedades PSD.</p>
+    </div>
+  </section>
+
+  <!-- ============ 17 · RESULTADOS ESTABILIZACIÓN ============ -->
+  <section data-label="Resultados: estabilización">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Desarrollo y resultados</span><span class="num">17</span></div>
+      <h2 class="title">Resultados preliminares: estabilización</h2>
+    </header>
+    <div class="body-area">
+      <div class="metrics" style="margin-bottom:8px">
+        <div class="metric">
+          <div class="big green">93<span style="font-size:54px">%</span></div>
+          <div class="lbl">sistemas estrictamente estables \(\big(\mathrm{Re}(\lambda_{\max})<0\big)\)</div>
+        </div>
+        <div class="metric">
+          <div class="big green">88<span style="font-size:54px">%</span></div>
+          <div class="lbl">cumple tasa de decaimiento \((\leq-0.01)\)</div>
+        </div>
+        <div class="metric">
+          <div class="big">−0.074</div>
+          <div class="lbl">promedio del peor autovalor en lazo cerrado — margen muy seguro</div>
+        </div>
+      </div>
+      <table class="tbl" style="font-size:var(--type-micro)">
+        <tbody>
+          <tr><td style="width:50%">Configuración</td><td>LMI-Net (Mish + LayerNorm) · FP64 · 5000 iter DR</td></tr>
+          <tr><td>Conjunto de prueba</td><td>100 sistemas <b>nunca vistos</b> durante el entrenamiento</td></tr>
+        </tbody>
+      </table>
+      <p class="closer" style="font-size:var(--type-body);margin-top:6px">La brecha del 7 % no es un fallo teórico: es atribuible al <span class="hl">gap entre 30 iter DR (train) y 5000 (inferencia)</span> — una limitación de memoria.</p>
+    </div>
+  </section>
+
+  <!-- ============ 18 · VELOCIDAD ============ -->
+  <section data-label="Resultados: velocidad">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Desarrollo y resultados</span><span class="num">18</span></div>
+      <h2 class="title">Resultados preliminares: velocidad de inferencia</h2>
+    </header>
+    <div class="body-area">
+      <div class="barwrap">
+        <div class="bar"><span class="bl">LMI-Net · DR 500</span><div class="track"><div class="fill" style="width:4.9%"></div></div><span class="val" style="color:var(--green)">0.21 ms</span></div>
+        <div class="bar"><span class="bl">LMI-Net · DR 1000</span><div class="track"><div class="fill" style="width:9.6%"></div></div><span class="val" style="color:var(--green)">0.41 ms</span></div>
+        <div class="bar"><span class="bl">LMI-Net · DR 2000</span><div class="track"><div class="fill" style="width:19.3%"></div></div><span class="val" style="color:var(--green)">0.83 ms</span></div>
+        <div class="bar"><span class="bl">LMI-Net · DR 4000</span><div class="track"><div class="fill" style="width:38.2%"></div></div><span class="val">1.64 ms</span></div>
+        <div class="bar ref"><span class="bl" style="color:var(--amber);font-weight:600">CVXPY / SCS</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val" style="color:var(--amber)">4.29 ms</span></div>
+      </div>
+      <p class="closer" style="margin-top:24px">Entre <span class="hl">2.6× y 20× más rápido</span> que el solver clásico, manteniendo cero violaciones en la región interior del dataset.</p>
+      <p class="src">Datos de los benchmarks del paper original (Tang et al., 2026). El pipeline reproduce el rango esperado en el subconjunto UNICAMP correspondiente.</p>
+    </div>
+  </section>
+
+  <!-- ============ DIVIDER IV ============ -->
+  <section class="divider" data-label="IV · Análisis del proyecto">
+    <div class="div-num">PARTE IV</div>
+    <h2 class="div-title">Análisis del proyecto</h2>
+    <div class="div-list">
+      <div class="d on"><span class="n">19</span><span>Línea en curso: rigidez dimensional</span></div>
+      <div class="d on"><span class="n">20</span><span>Análisis de riesgos</span></div>
+      <div class="d on"><span class="n">21</span><span>Restricciones del proyecto</span></div>
+      <div class="d on"><span class="n">22</span><span>Condiciones para operación adecuada</span></div>
+      <div class="d on"><span class="n">23</span><span>Costos y beneficios</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 19 · RIGIDEZ ============ -->
+  <section data-label="Rigidez dimensional">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Análisis del proyecto</span><span class="num">19</span></div>
+      <h2 class="title">Línea en curso: rigidez dimensional</h2>
+    </header>
+    <div class="body-area">
+      <div class="cols cols-2" style="gap:44px">
+        <div>
+          <div class="col-h" style="color:var(--amber)"><span class="sq" style="background:var(--amber)"></span>El problema</div>
+          <ul class="list sm">
+            <li style="--b:var(--amber)">El MLP backbone tiene entrada <b>fija</b> en 24 features \((N{=}2,\,n_x{=}3,\,n_u{=}1)\).</li>
+            <li>Si cambia <i>cualquier</i> parámetro topológico, toda la red debe <b>redimensionarse y reentrenarse</b>.</li>
+            <li>Contradice parcialmente la idea de un meta-controlador genérico.</li>
+          </ul>
+        </div>
+        <div>
+          <div class="col-h" style="color:var(--green)"><span class="sq" style="background:var(--green)"></span>Caminos en exploración</div>
+          <ol class="steps" style="gap:14px">
+            <li><span class="k">Padding canónico</span> — descarta propiedades PSD · <span class="bad">rechazado</span>.</li>
+            <li><span class="k">Embedding estructurado</span> a un espacio de representación común.</li>
+            <li><span class="k">Arquitecturas equivariantes</span> — GNNs (vértices = nodos) o Transformers (atención sobre vértices).</li>
+            <li><span class="k">Hipernetworks</span> — una red genera los pesos de otra especializada por topología.</li>
+          </ol>
+        </div>
+      </div>
+      <p class="closer" style="font-size:var(--type-body);margin-top:4px">Estado actual: evaluando <span class="hl">opciones 3 y 4</span> como línea de trabajo y, probablemente, como puente al magíster.</p>
+    </div>
+  </section>
+
+  <!-- ============ 20 · RIESGOS ============ -->
+  <section data-label="Análisis de riesgos">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Análisis del proyecto</span><span class="num">20</span></div>
+      <h2 class="title">Análisis de riesgos</h2>
+    </header>
+    <div class="body-area top">
+      <table class="tbl">
+        <thead>
+          <tr><th style="width:34%">Riesgo</th><th style="width:9%">P</th><th style="width:9%">I</th><th>Mitigación</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>R1.</b> Gap de entrenamiento (30 vs 5000 iter DR)</td><td><span class="bad">Alta</span></td><td><span class="bad">Alto</span></td><td>Diferenciación implícita estilo DEQ / Deep Declarative Networks</td></tr>
+          <tr><td><b>R2.</b> Inestabilidad numérica en FP32</td><td><span class="bad">Alta</span></td><td><span class="bad">Alto</span></td><td>Forzar FP64 — <span class="ok">ya implementado</span></td></tr>
+          <tr><td><b>R3.</b> Rigidez arquitectónica</td><td><span class="bad">Alta</span></td><td><span class="warn">Medio</span></td><td>Línea de trabajo dedicada (slide 19)</td></tr>
+          <tr><td><b>R4.</b> Sensibilidad al margen \(\epsilon\) del cono PSD</td><td><span class="warn">Media</span></td><td><span class="bad">Alto</span></td><td>Calendarización de \(\epsilon\) durante entrenamiento</td></tr>
+          <tr><td><b>R5.</b> Casos marginales (polos cerca del eje imaginario)</td><td><span class="warn">Media</span></td><td><span class="warn">Medio</span></td><td>Aumentar iteraciones DR en inferencia para esos casos</td></tr>
+          <tr><td><b>R6.</b> No generalización a OOD</td><td><span class="warn">Media</span></td><td><span class="warn">Medio</span></td><td>Evaluación con OOD-SLOW / OOD-LARGE del paper original</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 21 · RESTRICCIONES ============ -->
+  <section data-label="Restricciones del proyecto">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Análisis del proyecto</span><span class="num">21</span></div>
+      <h2 class="title">Restricciones del proyecto</h2>
+    </header>
+    <div class="body-area top">
+      <div class="cards" style="grid-template-columns:repeat(2,1fr);gap:28px">
+        <div class="card" style="padding:28px 30px">
+          <h4 style="font-size:var(--type-small);color:var(--blue)">Técnicas</h4>
+          <ul class="list sm" style="gap:10px"><li style="font-size:var(--type-micro);padding-left:30px">Dimensionalidad topológica fija \((n_x{=}3,n_u{=}1,N{=}2)\).</li><li style="font-size:var(--type-micro);padding-left:30px">FP64 obligatoria (sacrifica throughput).</li><li style="font-size:var(--type-micro);padding-left:30px">Memoria GPU limita el unrolling a ~30 iter DR.</li></ul>
+        </div>
+        <div class="card" style="padding:28px 30px">
+          <h4 style="font-size:var(--type-small);color:var(--blue)">De datos</h4>
+          <ul class="list sm" style="gap:10px"><li style="font-size:var(--type-micro);padding-left:30px">Solo sistemas robustamente estabilizables (RS).</li><li style="font-size:var(--type-micro);padding-left:30px">500 sistemas por configuración topológica.</li><li style="font-size:var(--type-micro);padding-left:30px">Sin matriz de canal \(B_w\) → <b style="color:var(--amber)">H∞ fuera de alcance</b>.</li></ul>
+        </div>
+        <div class="card" style="padding:28px 30px">
+          <h4 style="font-size:var(--type-small);color:var(--blue)">Metodológicas</h4>
+          <ul class="list sm" style="gap:10px"><li style="font-size:var(--type-micro);padding-left:30px">Solo realimentación de estados (no salida estática, que es BMI).</li><li style="font-size:var(--type-micro);padding-left:30px">Lyapunov cuadrático común (no parámetro-dependiente).</li></ul>
+        </div>
+        <div class="card" style="padding:28px 30px">
+          <h4 style="font-size:var(--type-small);color:var(--blue)">De validación</h4>
+          <ul class="list sm" style="gap:10px"><li style="font-size:var(--type-micro);padding-left:30px">Validación exclusivamente en simulación.</li><li style="font-size:var(--type-micro);padding-left:30px">Sin integración con planta física.</li></ul>
+        </div>
+      </div>
+      <p class="src">La ausencia de \(B_w\) es una restricción de los datos, no del método: descarta H∞, que requiere caracterizar un canal de disturbio.</p>
+    </div>
+  </section>
+
+  <!-- ============ 22 · CONDICIONES OPERACIÓN ============ -->
+  <section data-label="Condiciones de operación">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Análisis del proyecto</span><span class="num">22</span></div>
+      <h2 class="title">Condiciones para operación adecuada</h2>
+    </header>
+    <div class="body-area">
+      <div class="cols cols-2" style="gap:44px">
+        <div>
+          <div class="col-h"><span class="sq" style="background:var(--blue)"></span>Aspectos técnicos</div>
+          <ul class="list sm" style="gap:14px">
+            <li>GPU CUDA ≥8 GB VRAM (entrenamiento); CPU/GPU genérica para inferencia.</li>
+            <li>Stack: Python 3.10+, PyTorch ≥2.x, precisión doble habilitada.</li>
+            <li>Suite obligatoria de ≥100 sistemas test antes de despliegue.</li>
+            <li>Monitoreo continuo: registrar el peor autovalor para detectar drift.</li>
+          </ul>
+        </div>
+        <div>
+          <div class="col-h"><span class="sq" style="background:var(--cyan)"></span>Implantación y gestión del cambio</div>
+          <ul class="list sm cyan" style="gap:14px">
+            <li><b>Capacitación:</b> el meta-controlador <b>complementa</b>, no reemplaza, al solver clásico.</li>
+            <li><b>Documentación viva:</b> versionado con hash del dataset, hiperparámetros, métricas y <i>model card</i>.</li>
+            <li><b>Política de fallback:</b> si la violación supera un umbral, conmutar a controlador clásico o detener actuador.</li>
+            <li><b>Mantención:</b> reentrenar trimestralmente o ante cambios documentados en la planta.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 23 · COSTOS / BENEFICIOS ============ -->
+  <section data-label="Costos y beneficios">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Análisis del proyecto</span><span class="num">23</span></div>
+      <h2 class="title">Costos y beneficios</h2>
+    </header>
+    <div class="body-area">
+      <table class="tbl" style="font-size:var(--type-micro)">
+        <thead>
+          <tr><th style="width:16%"></th><th style="width:42%;background:var(--red)">Costos</th><th style="width:42%;background:var(--green)">Beneficios</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="hi">Computacionales</td><td>Entrenamiento offline costoso (~horas GPU); FP64 (≈50% menos throughput).</td><td>Inferencia 2.6×–20× más rápida; tiempo casi constante por instancia.</td></tr>
+          <tr><td class="hi">De ingeniería</td><td>Mayor complejidad; pipeline ML completo (datos + modelo + monitoreo).</td><td>Arquitectura entrenada una vez, desplegada miles de veces.</td></tr>
+          <tr><td class="hi">Académicos</td><td>Sin generalización a topologías arbitrarias; gap teoría–práctica en unrolling.</td><td>Pieza al puente control–DL; arquitectura reusable (filtrado, observadores).</td></tr>
+          <tr><td class="hi">Operacionales</td><td>Curva de aprendizaje del equipo; dependencia de hardware GPU.</td><td>Habilita aplicaciones inviables para el solver clásico (microgrids, vehículos autónomos).</td></tr>
+        </tbody>
+      </table>
+      <p class="closer" style="font-size:var(--type-body);margin-top:8px">El costo se paga <span class="hl">una vez offline</span>; el beneficio se cobra en <span class="hl">cada inferencia online</span>.</p>
+    </div>
+  </section>
+
+  <!-- ============ 24 · CONCLUSIONES + FUTURO ============ -->
+  <section data-label="Conclusiones y trabajo futuro">
+    <header class="shead">
+      <div class="eyebrow"><span class="sq"></span><span>Cierre</span><span class="num">24</span></div>
+      <h2 class="title">Conclusiones del avance y trabajo futuro</h2>
+    </header>
+    <div class="body-area top">
+      <div class="cols cols-2" style="gap:48px">
+        <div>
+          <div class="col-h" style="color:var(--green)"><span class="sq" style="background:var(--green)"></span>Conclusiones del avance</div>
+          <ul class="list sm" style="gap:14px">
+            <li style="padding-left:42px"><span style="position:absolute;left:0;top:-2px;color:var(--green);font-weight:700;font-size:24px">✓</span>Pipeline reproducible UNICAMP → PyTorch implementado.</li>
+            <li style="padding-left:42px"><span style="position:absolute;left:0;top:-2px;color:var(--green);font-weight:700;font-size:24px">✓</span>Arquitectura LMI-Net adaptada al problema politópico LPV.</li>
+            <li style="padding-left:42px"><span style="position:absolute;left:0;top:-2px;color:var(--green);font-weight:700;font-size:24px">✓</span>93 % de estabilización y 88 % de cumplimiento de tasa de decaimiento.</li>
+            <li style="padding-left:42px"><span style="position:absolute;left:0;top:-2px;color:var(--green);font-weight:700;font-size:24px">✓</span>Limitaciones identificadas y caracterizadas cuantitativamente.</li>
+          </ul>
+        </div>
+        <div>
+          <div class="col-h"><span class="sq" style="background:var(--blue)"></span>Trabajo futuro · por prioridad</div>
+          <ol class="steps" style="gap:13px">
+            <li><span class="k">Algoritmos alternativos a DR</span> — Dykstra (proyección euclidiana exacta), ADMM, operator splitting acelerado.</li>
+            <li><span class="k">Diferenciación implícita</span> (DEQ / DDN): cerrar el gap sin agotar memoria.</li>
+            <li><span class="k">Nuevos criterios viables</span> — costo \(\mathcal{H}_2\)/LQ, condicionamiento \(\kappa(Q)\), margen robusto, uso de \(K_{\text{ref}}\).</li>
+            <li><span class="k">Rigidez dimensional</span> — GNNs, Transformers o hipernetworks.</li>
+            <li><span class="k">Continuación en magíster</span> — control en red bajo ciberataques (FDI / DoS).</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 25 · CIERRE ============ -->
+  <section class="cover" data-label="Cierre">
+    <div class="cover-top">
+      <span>Universidad de Concepción · Facultad de Ingeniería · DIICC</span>
+      <div class="cover-logo">LOGO<br>UdeC</div>
+    </div>
+    <div>
+      <div class="cover-kicker">Gracias</div>
+      <h1 class="cover-title" style="font-size:88px">Quedo abierto a preguntas<br>y comentarios.</h1>
+    </div>
+    <div class="cover-meta">
+      <div class="who">
+        <div class="nm">Pedro Pablo Muñoz Solano</div>
+        <div class="rl">pedro.munoz@udec.cl · Ingeniería Civil Informática</div>
+      </div>
+      <div class="cover-logo" style="width:120px;height:120px;border-style:dashed">QR<br>repositorio</div>
+    </div>
+  </section>
+
+</deck-stage>
+
+<script type="application/json" id="speaker-notes">
+[
+"Buenas tardes. Mi nombre es Pedro Muñoz, estudiante de Ingeniería Civil Informática. Hoy presentaré el avance de mi memoria de título, en la intersección entre control robusto, aprendizaje profundo y métodos de proyección convexa: cómo diseñar un meta-controlador que aprenda a sintetizar ganancias estabilizadoras para sistemas con incertidumbre paramétrica, garantizando POR CONSTRUCCIÓN el cumplimiento de las restricciones matriciales que certifican estabilidad.",
+"Los sistemas ciberfísicos están en todas partes: redes eléctricas, vehículos autónomos, plantas industriales. Lo que los distingue es que un error en software se traduce en daño físico real. El apagón del 2003 no fue un fallo eléctrico clásico: fue una inestabilidad de control mal coordinado. Hoy además los CPS enfrentan ciberataques que modifican los parámetros efectivos de la planta. Garantizar estabilidad no es un lujo: es un requisito.",
+"Un sistema LPV es lineal pero sus parámetros varían según un vector ξ(t) que vive en un polítopo. Gracias a la convexidad y la linealidad de las LMIs, garantizar estabilidad para todo ξ se reduce a una LMI por vértice. Pero esos N problemas matriciales acoplados se resuelven con punto interior, complejidad cúbica, inviable cuando el sistema cambia varias veces por segundo.",
+"En una sola pregunta: ¿puedo pagar offline el costo de aprender, para que online cada decisión sea casi gratuita y, lo más importante, matemáticamente válida? Esa descomposición offline-online es la idea filosófica del trabajo. Y 'por construcción' marca la diferencia con cualquier red neuronal convencional: las restricciones no se penalizan, se imponen geométricamente.",
+"Entramos al marco teórico esencial: Lyapunov, la transformación de congruencia que convexifica la síntesis, la proyección convexa que conecta DL con LMIs, y el estado del arte.",
+"El método directo de Lyapunov es la piedra angular. La idea, de hace más de un siglo, es brillante: en vez de resolver la ecuación diferencial, postulo una energía virtual V(x)=xᵀPx y exijo que disipe en todo momento. Si la derivada es negativa para todo estado, el sistema es asintóticamente estable. Y como la derivada se expresa algebraicamente, todo el problema dinámico se transforma en una desigualdad matricial.",
+"Si quiero DISEÑAR el controlador, no basta verificar estabilidad: debo encontrar P y K simultáneamente. Pero al multiplicar el lazo cerrado aparecen productos PK y KᵀP: una BMI, bilineal, no convexa, intratable. La transformación de congruencia —cambiar a Q=P⁻¹ e Y=KQ— linealiza la condición y la vuelve una LMI convexa. Este truco, conocido desde Boyd y colegas en 1994, es lo que hace tratable el problema.",
+"La pieza algorítmica que conecta Deep Learning con LMIs es la proyección: encontrar el punto más cercano dentro de un conjunto convexo. Si el conjunto es complejo no hay forma cerrada. Pero si lo descompongo en dos conjuntos simples sobre los que sí sé proyectar, los métodos de splitting alternan proyecciones y convergen al objetivo común. Douglas-Rachford es uno entre varios. Esto es lo que permite que la capa sea diferenciable y entrenable.",
+"El campo evolucionó muy rápido desde 2023. Sambharya propuso aprender un warm-start; Tordesillas con RAYEN y Min con HardNet introdujeron capas de proyección diferenciable para restricciones convexas escalares; Grontas en ICLR 2026 generaliza a proyecciones ortogonales. Pero ninguno aborda LMIs matriciales acopladas, el lenguaje nativo del control robusto. LMI-Net, del grupo de Azizan en MIT (arXiv abril 2026), es la primera arquitectura diseñada para esta clase. Es la herramienta que adopto; mi aporte no es haberla inventado, sino llevarla a LPV politópicos y validarla sobre UNICAMP, con todo el análisis crítico que eso conlleva.",
+"Quiero ser transparente con la evolución. La propuesta inicial planteaba penalización suave de la LMI. Durante la investigación encontré que el grupo de Azizan publicó en abril de 2026 una capa que impone LMIs como restricción dura. Eso transformó la tesis: en lugar de penalizar, ahora proyecto. La idea del meta-controlador se conserva, pero con un mecanismo formal mucho más fuerte. También migré de discreto a continuo para alinear con UNICAMP, el benchmark estándar.",
+"El objetivo general es claro y honesto sobre la atribución: implementar y validar empíricamente, adoptando LMI-Net como capa de garantía. La aplicación al problema LPV politópico sobre UNICAMP, el análisis de limitaciones y las extensiones constituyen el aporte original.",
+"Cinco objetivos específicos. Los cuatro primeros cubren el ciclo técnico completo: datos, arquitectura, pérdidas y evaluación. El quinto es deliberadamente analítico: una memoria debe ser honesta sobre lo que aún no funciona perfecto. Ese quinto objetivo no es una cláusula de escape: ya tengo limitaciones cuantificadas y caminos de mitigación concretos.",
+"Entramos al diseño de la solución: la descomposición offline-online, la arquitectura, el detalle de la capa de proyección, y los criterios de entrenamiento.",
+"Quiero ser preciso: esto no es 'tiempo real' estricto. Es lo que el paper llama descomposición offline-online. Se invierte cómputo offline entrenando sobre cientos de sistemas; luego, online, una nueva planta requiere solo una inferencia más iteraciones del solver de proyección. La ventaja aparece cuando el mismo template SDP se evalúa repetidamente con distintos parámetros: exactamente la situación en CPS con incertidumbre paramétrica.",
+"La arquitectura es modular. Arriba un MLP estándar: tres capas densas con Mish y LayerNorm. Toma 24 features —los dos vértices del polítopo aplanados— y produce 9 parámetros crudos. Abajo la capa LMI-Net: proyecta esos 9 sobre la intersección de un subespacio afín y el cono PSD, y devuelve 9 factibles. De ahí reconstruyo Q simétrica e Y, y la ganancia final es K = Y·Q⁻¹.",
+"Acá está el corazón algorítmico. El lifting introduce una variable auxiliar X para descomponer la LMI en dos conjuntos sobre los que sí sé proyectar. El primero es un subespacio afín: proyectar es resolver mínimos cuadrados, con pseudoinversa precomputada una vez. El segundo es el cono PSD desplazado por epsilon: proyectar es descomponer espectralmente y recortar autovalores menores que epsilon. Douglas-Rachford intercala ambas con un paso de relajación. Y como cada paso es diferenciable, desenrollo el bucle como capas y dejo que la diferenciación automática haga el resto.",
+"Para entrenar podría haber imitado los K precalculados de la base, pero eso replica un comportamiento existente y hereda sesgos del solver. En cambio uso un esquema auto-supervisado: la red optimiza directamente el criterio físico. Implementé dos criterios viables: maximizar la tasa de decaimiento alfa, que controla qué tan rápido disipa energía, y minimizar el volumen del elipsoide invariante, que acota la trayectoria del estado. El K precalculado solo garantiza que el problema es factible.",
+"Pasamos a desarrollo y resultados: metodología y dataset, resultados de estabilización y de velocidad.",
+"Para que los resultados sean comparables uso la base UNICAMP de Oliveira y Peres, el benchmark estándar en control robusto LMI. Para esta primera prueba de concepto fijé tres estados, un actuador y dos vértices —400 train, 100 test—. La elección no es arbitraria: dos vértices son un segmento de recta en el espacio paramétrico, la forma más limpia de incertidumbre, y mantener la dimensión fija evita zero-padding que dañaría las propiedades PSD.",
+"Sobre 100 sistemas nunca vistos, el 93% resultó estrictamente estable: el peor autovalor en lazo cerrado quedó en el semiplano izquierdo. El 88% además cumplió el margen alfa = 0.01. El promedio del peor autovalor fue -0.0743, un margen seguro. La brecha del 7% no es un fallo teórico: es el gap entre las 30 iteraciones DR del entrenamiento y las 5000 de inferencia, una limitación de memoria que abordo en el análisis de riesgos.",
+"El otro lado de la moneda: la velocidad. Con 2000 iteraciones DR no hay violaciones en el conjunto de entrenamiento y a la vez es ~5 veces más rápido que CVXPY con SCS. Con 4000 sigo siendo más rápido que el solver clásico. Esto valida la hipótesis central: las restricciones duras son compatibles con una inferencia mucho más eficiente. Importante: estos números son del paper original; mis resultados sobre UNICAMP reproducen ese rango.",
+"Entramos al análisis del proyecto: rigidez dimensional, riesgos, restricciones, condiciones de operación y costos-beneficios.",
+"Quiero ser transparente sobre una limitación que trabajo activamente. La arquitectura tiene entrada fija: 24 features para 2 vértices, 3 estados, 1 actuador. Si cambia cualquier dimensión topológica, debo reentrenar otra red. Esto debilita la promesa de un meta-controlador genérico. Evalúo cuatro caminos: padding canónico —descartado, destruye propiedades matriciales—; embedding estructurado; arquitecturas equivariantes como GNNs o Transformers, donde cada vértice sería un nodo o token; y hipernetworks. Línea activa y probable puente al magíster.",
+"Los riesgos no son hipotéticos: ya los encontré en práctica. El más importante es el gap de entrenamiento: entreno con 30 iteraciones DR porque más explotaría la memoria GPU al desenrollar el grafo, pero evalúo con 5000 para factibilidad estricta. Eso crea una discrepancia entre lo que la red optimiza y lo que el solver produce. Mi mitigación principal es la diferenciación implícita, que calcula gradientes analíticamente en el punto fijo sin almacenar el grafo entero.",
+"Toda metodología vive bajo restricciones. Las mías son explícitas: dimensionalidad fija, FP64 obligatoria, memoria que limita el unrolling, y foco en sistemas ya estabilizables. Un punto importante: UNICAMP contiene Ai, Bi y el K precalculado, pero NO una matriz de canal de perturbación Bw. Eso descarta H-infinito, que requiere caracterizar un canal de disturbio. Es una restricción de los datos, no del método.",
+"Aunque la tesis es teórica y experimental, pensé qué implicaría llevar esto a producción. Lo más importante en gestión del cambio: el meta-controlador no reemplaza al ingeniero de control, lo complementa. El solver clásico sigue siendo el ground truth en simulación; la red es la actuación en runtime. Como todo sistema de ML en producción, requiere versionado, monitoreo y política de fallback. Eso separa una prueba de concepto de un sistema desplegable.",
+"Los costos no son solo económicos: son cognitivos, organizacionales y técnicos. Pero el balance favorece claramente al enfoque: pagar un costo grande una vez en entrenamiento offline para un beneficio recurrente en cada decisión. Y para problemas donde el solver clásico era inviable —microgrids rápidos, vehículos autónomos en bordes embebidos—, este enfoque habilita aplicaciones nuevas.",
+"El avance demuestra que la arquitectura funciona empíricamente, que las limitaciones están bien caracterizadas, y que hay una hoja de ruta clara. El trabajo futuro no es una lista de deseos: es un orden de prioridades. Descarté H-infinito porque requiere una matriz Bw que la base no contiene; los criterios listados son todos viables con los datos. Y, lo más relevante para mi trayectoria, este trabajo abre las preguntas que abordaré en el magíster.",
+"Gracias por su atención. Quedo abierto a sus preguntas y comentarios."
+]
+</script>
+<script src="deck-stage.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+\chapter{Experimentos y resultados}
+	\label{sec:experimentos}
+\section{Evaluación de Desempeño: LMI-Net vs. Sistemas no Vistos}
+
+Para cuantificar la efectividad de la arquitectura LMI-Net propuesta, se realizó una evaluación empírica utilizando el subconjunto de prueba (\textit{test set}) extraído de la base de datos UNICAMP, el cual consta de 100 sistemas politópicos (2 vértices, 3 estados, 1 actuador) que la red jamás observó durante su entrenamiento.
+
+La red neuronal (el \textit{backbone}) fue entrenada durante 50 épocas con 30 iteraciones de Douglas-Rachford en el pase hacia adelante, apuntando a un decaimiento estricto de $\alpha = 0.01$. Para la fase de inferencia (evaluación), aprovechamos la naturaleza garantizada del solucionador y aumentamos las iteraciones de proyección iterativa a 5000. Además, todo el cálculo matricial fue transicionado a precisión doble (\textit{float64}) para evitar el colapso numérico causado por la acumulación de errores de truncamiento.
+
+Los resultados de estabilización obtenidos se resumen en el Cuadro~\ref{tab:resultados_lminet}.
+
+\begin{table}[htpb]
+\centering
+\caption{Resultados de Estabilización y Tasa de Decaimiento sobre Test Set ($N=100$)}
+\label{tab:resultados_lminet}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Métrica de Evaluación} & \textbf{Resultado} \\ \midrule
+Arquitectura                   & LMI-Net (Mish + LayerNorm) \\
+Precisión Computacional        & FP64 (Doble Precisión)     \\
+Iteraciones DR (Inferencia)    & $5000$ iteraciones         \\
+Sistemas Estrictamente Estables ($\text{Re}(\lambda_{\text{max}}) < 0$) & $\mathbf{93.00\%}$ \\
+Cumplimiento de Tasa de Decaimiento ($\leq -0.01$) & $88.00\%$ \\
+Promedio del Peor Autovalor    & $-0.0743$                  \\ \bottomrule
+\end{tabular}
+\end{table}
+
+Como se observa en los resultados, el modelo propuesto ("One-Shot") fue capaz de arrojar matrices de Lyapunov y ganancias que estabilizaron a la inmensa mayoría de los sistemas (93\%), con un 88\% del total logrando cruzar exitosamente la exigencia paramétrica de $\alpha=0.01$. El promedio del peor autovalor en bucle cerrado alcanzó un margen sumamente seguro de $-0.0743$. La imposibilidad de llegar al 100\% estricto no se debe a un fallo teórico, sino a factores numéricos y restricciones computacionales que se detallan en la siguiente sección.
+
+\section{Limitaciones Metodológicas y Desafíos Computacionales}
+\label{sec:limitaciones_experimentos}
+
+La integración de arquitecturas de aprendizaje profundo con las restricciones geométricas estrictas del control robusto introduce un nivel de complejidad computacional significativo. Durante el diseño, entrenamiento y evaluación de la \textit{LMI-Net}, se identificaron diversos desafíos y limitaciones metodológicas que restringen la generalización absoluta y el desempeño de la implementación práctica.
+
+\subsection{Rigidez Arquitectónica y Dimensionalidad Fija}
+La primera limitación fundamental radica en la naturaleza de entrada estática de la red neuronal clásica. A diferencia de un optimizador numérico convencional que puede reestructurar su problema sobre la marcha para diferentes configuraciones, la red neuronal requiere una topología inmutable con tamaños de capa estrictamente predefinidos.
+
+Esta condición impide que una misma arquitectura entrenada sea reutilizada en diferentes configuraciones o \textit{setups} de sistemas paramétricos. Por ejemplo, un modelo diseñado para absorber las 24 características de un sistema de 2 vértices y estados de tercer orden no puede procesar un sistema de 3 vértices ni de cuarto orden, ya que la dimensionalidad de las matrices polinomiales $A_i$ y $B_i$ cambiaría drásticamente. Cualquier variación en la cantidad de actuadores, número de estados, o vértices del polítopo de incertidumbre, exige rediseñar estructuralmente las dimensiones de entrada y salida del \textit{backbone}, requiriendo obligatoriamente el entrenamiento de una nueva red neuronal dedicada exclusivamente a ese problema topológico específico.
+
+\subsection{Condicionamiento Numérico y Precisión de Punto Flotante}
+El segundo desafío crítico es la susceptibilidad de los operadores de proyección a la brecha de precisión numérica. Los solucionadores iterativos, especialmente aquellos que cruzan las fronteras de conos semidefinidos positivos mediante descomposición espectral, son extremadamente sensibles a los errores de truncamiento y redondeo. 
+
+En los entornos de aprendizaje automático, el estándar de la industria es utilizar precisión de punto flotante de 32 bits para maximizar la velocidad de cálculo en hardware paralelo. Sin embargo, bajo esta resolución, el algoritmo inducía inestabilidad numérica: matrices que teóricamente eran definidas positivas perdían dicha propiedad a nivel microscópico, generando valores indefinidos (NaNs) y colapsando el entrenamiento. Para mitigar este fenómeno, fue mandatorio forzar todo el flujo de datos computacionales —incluyendo los tensores de las plantas físicas extraídas y los pesos internos de la red neuronal— hacia una \textbf{precisión doble} (64 bits). Esta decisión sacrificó velocidad de procesamiento a cambio de garantizar la factibilidad de la matriz geométrica del sistema.
+
+\subsection{Complejidad de Memoria y el Truncamiento del Desenrollado}
+El tercer obstáculo, y posiblemente el más restrictivo, proviene del pase hacia atrás (\textit{backward pass}). El entrenamiento utiliza la técnica de desenrollado algorítmico de grafos computacionales para derivar a través del proceso de solución iterativa de la Desigualdad Matricial Lineal. Durante la fase de inferencia operativa, para asegurar que la matriz proyectada alcance la factibilidad absoluta, el algoritmo de Douglas-Rachford requiere iterar profundamente, alcanzando ejecuciones del orden de miles de ciclos (ej., 5000 iteraciones).
+
+No obstante, almacenar el grafo computacional completo de 5000 operaciones secuenciales para calcular los gradientes provoca un agotamiento de la memoria de acceso aleatorio (RAM) del sistema gráfico. Para evitar este límite de hardware, el desenrollado de la proyección durante el entrenamiento debió truncarse a un número reducido de ciclos (típicamente 30 iteraciones).
+
+\subsection{Sensibilidad del Margen $\epsilon$ e Inicialización Subóptima}
+El truncamiento del pase hacia atrás genera una discrepancia algorítmica fundamental conocida como el "Gap de Entrenamiento". La red neuronal aprende a predecir basándose en el gradiente de solo 30 iteraciones, pero el sistema real se evalúa bajo una convergencia profunda. Esto provoca que la red entregue una \textbf{inicialización subóptima} para el solucionador en la etapa de proyección final.
+
+Este problema se exacerba debido a la rigidez del hiperparámetro de seguridad $\epsilon$. Para sistemas dinámicos "marginales" —aquellos donde los polos de la planta $A_i$ se encuentran inherentemente al borde de la inestabilidad— la intersección geométrica entre el espacio afín y el cono semidefinido positivo se vuelve extremadamente delgada. Una inicialización subóptima combinada con un margen $\epsilon$ estricto hace que la convergencia iterativa sea altamente ineficiente, requiriendo un número masivo de iteraciones adicionales para que la matriz logre ingresar a la región matemáticamente segura. 

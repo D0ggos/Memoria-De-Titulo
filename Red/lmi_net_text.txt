@@ -1,0 +1,942 @@
+
+--- Page 1 ---
+LMI-Net: Linear Matrix Inequality–Constrained Neural Networks via
+Differentiable Projection Layers
+Sunbochen Tang, Andrea Goertzen, and Navid Azizan
+Abstract— Linear matrix inequalities (LMIs) have played a
+central role in certifying stability, robustness, and forward
+invariance of dynamical systems. Despite rapid development
+in learning-based methods for control design and certificate
+synthesis, existing approaches often fail to preserve the hard
+matrix inequality constraints required for formal guarantees.
+We propose LMI-Net, an efficient and modular differentiable
+projection layer that enforces LMI constraints by construc-
+tion. Our approach lifts the set defined by LMI constraints
+into the intersection of an affine equality constraint and the
+positive semidefinite cone, performs the forward pass via
+Douglas–Rachford splitting, and supports efficient backward
+propagation through implicit differentiation. We establish the-
+oretical guarantees that the projection layer converges to a
+feasible point, certifying that LMI-Net transforms a generic
+neural network into a reliable model satisfying LMI constraints.
+Evaluated on experiments including invariant ellipsoid syn-
+thesis and joint controller-and-certificate design for a family
+of disturbed linear systems, LMI-Net substantially improves
+feasibility over soft-constrained models under distribution shift
+while retaining fast inference speed, bridging semidefinite-
+program-based certification and modern learning techniques.
+I. INTRODUCTION
+Linear matrix inequalities (LMIs) have served as a unify-
+ing framework across a wide variety of important problems
+in dynamics and control [1], including stability certificate
+synthesis, robust invariance analysis, and control design.
+Although a single LMI-constrained problem can often be
+handled efficiently offline by numerical solvers, many ap-
+plications involve families of related instances in which
+the same semidefinite programming problem template must
+be solved repeatedly [2]–[5]. For example, this repeated
+parameterized structure appears when system parameters
+or operating conditions change, or disturbance descriptions
+vary. Under such settings, it is desirable to shift as much
+computation as possible offline by computing a function that
+maps problem parameters to solutions, so that a new instance
+can be handled by function evaluation rather than by solving
+a new optimization problem from scratch. This offline-online
+decomposition is closely related to the philosophy of explicit
+MPC [2], which yields piecewise-affine explicit control laws
+associated with multiparametric quadratic programming for-
+mulations. Since such piecewise-affine maps do not exist in
+general [6], a learned optimizer that satisfies LMI constraints
+can be highly desirable for enabling fast online evaluation.
+Recent years have seen rapid progress in learning-based
+methods for certificate synthesis and control design [7],
+The authors are with the Laboratory for Information and Decision Sys-
+tems (LIDS), Massachusetts Institute of Technology, Cambridge, MA 02139,
+USA. Emails:{tangsun, agoertz, azizan}@mit.edu
+including approaches that learn stability and safety certifi-
+cates from data [8]–[11], as well as methods that jointly
+learn certificates and feedback control policies [12]–[15].
+Because the objective is to establish certifiable stability or
+safety, satisfaction of the underlying certificate and controller
+constraints is essential [7]. However, obtaining provable
+guarantees on the behavior of expressive neural models
+beyond the training data remains difficult, and constraint
+violations on previously unseen instances can invalidate the
+resulting certification [9].
+A common way to encourage constraint satisfaction is to
+augment the training objective with sample-based regular-
+ization terms that penalize constraint violations [7], [15].
+While such soft-constrained formulations can be effective
+empirically, they do not in general guarantee constraint
+satisfaction at inference time [16], [17], especially on inputs
+outside the training distribution. A complementary line of
+work therefore seeks hard feasibility by construction by
+designing differentiable layers that enforce constraints on the
+neural network output, as in [8], [16], [17]. These methods
+design enforcement mechanisms based on the structure of
+the constraints. Affine constraints are addressed in [8], [16]
+by designing closed-form projection layers, and convex con-
+straints can be enforced by ray-based feasible parameteri-
+zation in [17], although the method is restricted to input-
+independent constraints. This leaves open the design of an
+efficient differentiable projection layer for LMI-constrained
+learning problems.
+We address this challenge with an explicit, differentiable
+projection layer tailored to LMI constraints. The key ob-
+servation driving our approach is that the feasible set of
+a parameterized LMI admits a lifted representation as the
+intersection of an affine equality constraint and the positive
+semidefinite cone. Leveraging this structure, we develop
+a projection mechanism based on the Douglas–Rachford
+algorithm [18], an iterative splitting method recently shown
+to be effective in constrained learning contexts [4], [5]. Our
+approach enables both efficient forward-pass projections onto
+the decomposed constraint sets and implicit differentiation
+in the backward pass. The resulting layer is backbone-
+agnostic and converts repeated constrained optimization into
+a learned computation, enabling fast evaluation while sat-
+isfying LMI constraints at inference time. Our framework
+is, to our knowledge, the first to enforce input-dependent
+LMI constraints directly on neural network outputs, offering
+a scalable pathway for integrating convex control constraints
+into learning systems.
+Our operator-splitting approach enables principled en-
+arXiv:2604.05374v1  [cs.LG]  7 Apr 2026
+--- Page 2 ---
+forcement of LMI constraints within data-driven models. Our
+key contributions are as follows:
+•We develop a tailored splitting scheme for LMI con-
+straints that decomposes the feasible set into compo-
+nents with tractable structure. This formulation admits
+explicit and efficient projections onto each set, making
+it well-suited for integration into differentiable architec-
+tures.
+•We establish theoretical convergence guarantees by
+leveraging classical results for the Douglas–Rachford
+algorithm. These guarantees provide a rigorous foun-
+dation for the correctness and stability of the proposed
+projection layer.
+•We present experimental results demonstrating consis-
+tent constraint satisfaction and stable behavior across
+a range of settings. In particular, our approach main-
+tains reliability under both in-distribution and out-of-
+distribution inputs, highlighting its robustness in practi-
+cal deployment scenarios.
+II. PROBLEMFORMULATION
+A. Parameterized Optimization under LMI Constraints
+Consider the parameterized optimization problem,
+min
+y
+c(y),subject toF(y;ξ)≜F 0(ξ) +
+mX
+i=1
+yiFi(ξ)⪰0,
+(1)
+where the symmetric matricesF i(ξ)∈S n, i∈ {0, ..., m}are
+known and parameterized byξ∈R p,c(·)is a cost function.
+y∈R m is the decision variable, and the optimal solution is
+a function ofξ,y ∗(ξ). Note thatF(y;ξ)⪰0is a general
+form that can represent a set of LMIs, as multiple LMIs
+F (1)(y;ξ)⪰0, ..., F (N)(y;ξ)⪰0can be reformulated as
+F(y;ξ) = diag (F (1)(y;ξ), ..., F (N)(y;ξ))⪰0.
+The optimization in (1) is a reduction of many problems in
+control theory, where the structure of the objective function
+c(·)and constraints remain fixed for a family of systems,
+andξencodes system-specific parameters. For example,
+synthesizing a Lyapunov stability certificate for a family of
+linear systems,{˙x=Ax:A∈S(A)}whereS(A)is
+a set of Hurwitz matrices, can be formulated as solving a
+semidefinite program parameterized byA. Given a specific
+A, the stability certificate synthesis problem is then an
+instance of the parameterized optimization problem. Instead
+of repeatedly invoking a numerical solver for each different
+instance ofA, learning a mapξ→y ∗(ξ)that approximates
+the optimizer can significantly speed up computation, which
+is especially beneficial in real-time or distributed settings.
+B. Self-supervised Learning with Feasibility by Construction
+The objective is to learn a neural networkˆy(ξ;θ)that
+approximates the optimal solution of (1). Instead of using
+labeled data that relies on a solver to provide supervised
+signals, we adopt a self-supervised setting, where we define
+the training loss to be the average cost function value over
+differentξ. More formally, given a dataset consisting ofξ
+drawn from a known distribution,D train ={ξ (i)}Ntrain
+i=1 , the
+training process solves the following optimization problem,
+L(θ) = 1
+Ntrain
+NtrainX
+i=1
+c(ˆy(ξ(i);θ)),(2a)
+subject toF(ˆy(ξ;θ);ξ)⪰0,∀ξ∈Ξ,(2b)
+whereΞ⊂R p is the set of admissible parameter values.
+Our goal is to design a learned optimizer that isfeasible by
+construction. The constraint in (2b) needs to be satisfied for
+all admissible parametersξ∈Ξ, not just for those in the
+training dataD train.
+For problems such as stability certificate synthesis and
+control design, feasibility by construction is highly desirable,
+enabling formal guarantees of safety and stability in physical
+system applications. To enforce feasibility, we define a
+context-dependent projection,Π ξ :R m →R m that maps any
+generic neural network outputy NN(ξ;θ)∈R m to a feasible
+pointˆy(ξ;θ) = Π ξ(yNN(ξ;θ))satisfyingF(ˆy(ξ;θ);ξ)⪰0.
+Key requirements for such a projection operatorΠ ξ include:
+(i) the output needs to be provably feasible for all inputs; (ii)
+Πξ needs to be fully differentiable for training purposes; (iii)
+Πξ is computationally efficient during inference. As studied
+extensively in the literature [1], developing an explicit pro-
+jection operator for an LMI constraint is difficult in general.
+We address this issue by decomposing the LMI constraint
+into the intersection of an affine constraint and a positive
+semidefinite cone constraint, and leveraging the Douglas-
+Rachford algorithm for efficient computation and provable
+convergence to a feasible point. The details of our approach
+are discussed in Section III.
+C. Illustrative Example: Ellipsoidal Invariant Sets for Dis-
+turbed Linear Systems
+Consider a linear system under disturbance,
+˙x=Ax+B ww, w T w≤1,(3)
+whereA∈R n×n is a Hurwitz matrix,B w ∈R n×nw, and
+wis a norm-bounded disturbance. The goal is to find an
+ellipsoidal setE(P) ={x:x T P x≤1}withP≻0that is
+forward invariant for (3).
+Consider a Lyapunov-like storage function candidate
+V(x) =x T P xwithP≻0. A sufficient condition forE(P)
+to be robustly invariant is
+˙V(x, w)≤0∀(x, w)s.t.w T w≤1, V(x)≥1,(4)
+where ˙V(x, w) =x T (AT P+P A)x+ 2x T P Bww. Using
+the S-procedure [19], (4) holds if there existα, β≥0such
+that for allxandw,
+˙V(x, w)−β(w T w−1) +α(x T P x−1)≤0.
+Without loss of generality, assumingα=β≥0, the above
+condition, combined withP≻0, simplifies to
+AT P+P A−αP P B w
+BT
+w P−αI
+
+⪯0, P⪰ϵI(5)
+--- Page 3 ---
+For fixedα≥0andϵ >0, the optimization problem is: find
+Psubject to (5). The objective can be chosen as minimizing
+the volume ofE(P), i.e.,min−log detP.
+SinceP∈S n, it hasm= n(n+1)
+2 degrees of freedom. Let
+{Ej}m
+j=1 be an orthonormal basis forS n under the Frobenius
+inner product. We parameterizePas
+P(y) =
+mX
+j=1
+yjEj, y∈R m.(6)
+Substituting into (5), the constraint takes the standard form
+(1) withξ= (A, B w). The learned mapping isξ7→y, where
+the neural network outputs the coefficients of a feasibleP.
+III. DIFFERENTIABLEPROJECTIONLAYERS VIA
+DOUGLAS-RACHFORDSPLITTING
+A. The Douglas-Rachford Algorithm
+The Douglas-Rachford algorithm is used to solve opti-
+mization problems of the form
+argmin
+z
+fξ(z) +g ξ(z).(7)
+Here,z∈R l is a decision variable,ξ∈R p is a context
+parameter, andf ξ :R l →Randg ξ :R l →Rare convex
+objectives. Douglas-Rachford solves the combined objective
+via an iterative method that alternates between proximal and
+reflection steps. Specifically, a Douglas-Rachford iteration is
+performed as follows.
+wk+1 =prox f σ(zk)proximal point off
+¯wk+1 = 2wk+1 −z k reflection acrossw k+1
+vk+1 =prox gσ( ¯wk+1)proximal point ofg
+¯vk+1 = 2vk+1 −¯wk+1 reflection acrossv k+1
+zk+1 = ¯vk+1 +z k
+2 averaging with current iterate
+(8)
+The objectives are incorporated to each iteration via the
+proximal operator, prox hσ(¯z) =argmin
+z
+h(z) + 1
+2σ ||¯z−z||2,
+which balances minimizing the specific objectivehwith
+remaining close to the input point¯z. Douglas-Rachford is
+useful for problems in which the combined objective in (7)
+is difficult to solve but the proximal operator for bothf ξ(z)
+andg ξ(z)is straightforward to compute, particularly when
+the solutions can be evaluated in closed-form.
+B. Douglas-Rachford for Feasibility Problems
+The Douglas-Rachford algorithm can be used to solve
+feasibility problems by formulating constraint satisfaction
+as a convex optimization problem. Consider two convex
+constraint setsC 1 andC 2 withC 1 ∩ C2 ̸=∅. Definef(z)
+andg(z)in (7) withI C1(z)andI C2(z), respectively.I Ci(z)
+is defined to be0when the constraintz∈ C i is satisfied
+and∞otherwise. With this definition forf(z)andg(z),
+it is clear that the solution to (7) occurs only when both
+constraints are satisfied. Computing the proximal solution
+for each of the two sets is therefore equivalent to solving
+proxCiσ(¯z) =argmin
+z
+ICi(z) + 1
+2σ ||¯z−z|| 2. That is, for
+the feasibility problem, the proximal solution step in (8)
+is simply the Euclidean projection onto the respective con-
+straint. Although we drop the dependence on the context
+parameterξforf ξ andg ξ for notational convenience, we
+emphasize that Douglas-Rachford readily handles context-
+dependent constraints, so long as they remain convex.
+For a constraint setC, Douglas-Rachford offers an efficient
+projection of points onto the feasible set whenCcan be
+decomposed into two setsC 1 andC 2 (withC=C 1∩C2) whose
+projections are readily computable. While many splits for
+C1 andC 2 may exist, selecting a splitting scheme where the
+respective Euclidean projections onto each constraint set are
+computable in closed-form reduces computational burden.
+Therefore, the efficiency provided by Douglas-Rachford for
+feasibility problems is often ultimately enabled by the choice
+of splitting scheme, making the selection of the right scheme
+for the right problem an important strategic objective.
+C. LMI as the Intersection of Two Convex Sets
+In this work, we propose a splitting scheme that decom-
+poses the LMI conditionF(y)⪰0into the intersection
+of an affine equality condition and the positive semidefinite
+cone. Although the projection ontoF(y)⪰0is generally
+intractable, our splitting scheme enables efficient projection
+onto the two individual sets.
+C= Π m(C1 ∩ C2),C 1 =
+y
+x
+
+:F(y) =X
+
+,
+C2 =
+y
+x
+
+:y∈R m, X⪰0
+
+.
+(9)
+Here,x=vec(X)∈R n2
+is an auxiliary variable included as
+an intermediate to enable efficient projection onto the posi-
+tive semidefinite cone. The projectionΠ m :R m+n2
+→R m
+is a final projection onto the firstmentries ofz= [y T xT ]T ,
+selecting onlyyas an output and ignoring the auxiliary
+variablex. The intersectionC 1 ∩ C2 is clearly equivalent to
+the LMI conditionF(y)⪰0. We define an optimization
+problem of the form (7) for the closest projection of the
+neural network outputˆyθ onto the constraintC.
+z∗ =argmin
+z
+||ˆyθ −y|| 2 +I C1(z) +I C2(z)(10)
+Note thaty= Π m(z) =z 1:m. Equation (10) can be
+separated into two convex objective functionsf(z) =||y−
+ˆyθ||2 +I C1(z)andg(z) =I C2(z). We now propose efficient
+computations of the proximal operator for each of the two
+objectives. We use ¯·to denote variables that are the input to
+the proximal projection. Forg(z) =I C2(z), the proximal
+operator is the minimum-distance projection onto the set
+C2. We compute this projection efficiently via an eigenvalue
+clipping operation. Specifically, let ¯X=UΛU T be the
+eigendecomposition of the symmetric matrix ¯X. We can then
+define the projection
+ΠC2( ¯X) =Umax(0,Λ)U T .(11)
+--- Page 4 ---
+The max operation is applied element-wise to the eigenvalue
+matrixΛ. Equation (11) clearly outputs a positive semidefi-
+nite matrix.
+We now define a closed-form solution for the projection
+onto the constraintC 1. Forf(z) =||ˆy θ −y|| 2 +I C1(z),
+the proximal operator is prox f σ(¯z) =argmin
+z
+||y−ˆyθ||2 +
+IC1(z)+ 1
+2σ ||¯z−z||2. This differs from a Euclidean projection
+from the input point¯z, because it balances minimizing the
+distance between the projected point and both the input
+point¯zandthe model outputˆy θ. The tradeoff between
+these two objectives for a given Douglas-Rachford iteration
+is tuned withσ. By expanding the competing objectives
+and completing the square, we can write the objective as a
+Euclidean projection from a point that is a weighted average
+ofˆyθ and¯z.
+proxf σ(¯z) =argmin
+z
+1
+2
+
+y− 1
+2σ+ 1 (2σˆyθ + ¯y)
+
+
+2
++
+1
+2 ||X− ¯X||2
+F +I C1(z)
+(12)
+Note that the optimization variablezincludes bothy
+and the auxiliary variableX. We now define a closed-form
+solution for the projection onto constraintC 1. Our proposed
+constraint decomposition scheme in (9) makes the necessary
+projection ontoC 1 linear in[y T xT ]T , enabling the use of a
+closed-form linear equality constraint projection. We define
+the projection
+ΠC1
+¯y
+¯x
+
+,ˆyθ
+
+=argmin
+y,X
+1
+2 ||y−y avg||2 + 1
+2 ||X− ¯X||2
+F
+subject toF(y) =X,
+(13)
+wherey avg = 1
+2σ+1 (2σˆyθ + ¯y). Note that there is no need
+to define anX avg, sinceXis an auxiliary variable that
+does not have a corresponding neural network output. By
+vectorizing the matrixX, this problem becomes a Euclidean
+distance minimization subject to linear constraints onyand
+X. We vectorize¯x=vec( ¯X),c=vec(F 0), andL=
+[vec(F1),vec(F 2), ...,vec(F m)]. The constraintF(y) =Xis
+now defined byLy+c=x, a linear combination of vectors,
+rather than a linear combination of matrices. We substitute
+the constraint into (13),
+ΠC1
+¯y
+¯x
+
+=argmin
+y,x
+1
+2 ||y−yavg||2+1
+2 ||Ly+c−¯x||2,(14)
+A closed-form solution to (14) can be computed by setting
+the gradient of the objective to0. This gives the closed-form
+projection.
+ΠC1
+
+¯y
+¯x
+
+,ˆyθ
+
+=
+
+y∗
+Ly∗ +c
+
+y∗ =
+ 
+I+L T L
+−1 
+yavg −L T (c−¯x)
+ (15)
+The alternating projection proposed can be summarized
+as a decomposition of the projection ontoCinto two sub-
+projections that are efficiently computable in closed form.
+In practice, we exploit the symmetry ofXto solve for
+onlyn(n+ 1)/2auxiliary variables, using a weighted
+matrix for the projectionΠ C1 such that the projection is
+computed with respect to the Frobenius norm of the full
+matrixXas in Equation (14). The projection layer here is
+backbone-agnostic, meaning it can be used with any neural
+network backbone to enforce LMI constraints. Algorithm 1
+describes the end-to-end constraint enforcement procedure
+using Douglas-Rachford.
+Algorithm 1Neural Network with LMI Constraint Enforce-
+ment Forward Pass
+Input:ξ,n iter,σ,θ
+Output:y ∗
+1:neural network predictionˆy θ ←f θ(ξ)
+2:initializez 0 ←[y 0 x0]T ∈R m+n2
+3:fork= 0ton iter −1do
+4:w k+1 ←Π C1(zk,ˆyθ)(15)
+5:v k+1 ←Π C2(2wk+1 −z k)(11)
+6:z k+1 ←v k+1 −w k+1 +z k
+7:end for
+8:y ∗ ←Π m(ΠC1(zniter,ˆyθ))
+D. Backpropagation via Implicit Differentiation
+To compute gradients during training, we use an implicit
+differentiation scheme, introduced in [5], to avoid differen-
+tiating through alln iter iterations of the Douglas-Rachford
+algorithm. The gradients of the neural network outputˆyθ with
+respect to the parametersθcan be computed with standard
+backpropagation approaches, so we focus on the computation
+of gradients through the Douglas-Rachford operation. That
+is, we seek an efficient computation for
+∂y ∗
+∂ˆyθ
+= ∂Πm(ΠC1(zniter(ˆyθ),ˆyθ))
+∂ˆyθ
+.(16)
+We follow the approach in [5], leveraging the implicit
+function theorem to efficiently compute the vector-Jacobian
+product (VJP) with the Jacobian in (16). We are specifically
+interested in calculating the VJP
+vT ∂Πm(ΠC1(zniter(ˆyθ),ˆyθ))
+∂ˆyθ
+= [vT 0] ∂ΠC1(zniter(ˆyθ),ˆyθ)
+∂ˆyθ
+= [vT 0]
+ ∂ΠC1
+∂zniter
+∂zniter(ˆyθ)
+∂ˆyθ
++ ∂ΠC1
+∂ˆyθ
+
+.
+(17)
+SinceΠ C1 is linear in bothzandˆy θ, its gradients with
+respect toz niter andˆyθ are straightforward to compute. We
+focus on computing the VJP
+vT ∂zniter(ˆyθ)
+∂ˆyθ
+.
+Computing∂z k/∂ˆyθ in general requires differentiation
+through each iteration of the Douglas-Rachford algorithm,
+sincez k+1(ˆyθ) = Φ(z k(ˆyθ),ˆyθ), withΦbeing a single
+Douglas-Rachford iteration. This problem is avoided at the
+fixed pointz ⋆ wherez ⋆(ˆyθ) = Φ(z ⋆(ˆyθ),ˆyθ). The implicit
+function theorem therefore gives
+--- Page 5 ---
+
+Im+n2 − ∂Φ
+∂z
+z=z ⋆
+ ∂z
+∂ˆyθ
+= ∂Φ
+∂ˆyθ
+.(18)
+Note that sincez ⋆ is computationally intractable, we eval-
+uate ∂Φ
+∂z atz niter in practice. We could solve this linear system
+to isolate ∂z
+∂ˆyθ
+, but that adds unnecessary computational
+burden, since we are more interested in the VJPv T ∂z
+∂ˆyθ
+. We
+instead define a vectorλthat is the solution to the linear
+system
+λT
+
+Im+n2 − ∂Φ
+∂z
+z=z ⋆
+
+=v T .(19)
+This gives the following VJP of interest.
+vT ∂z
+∂ˆyθ
+=λ T ∂Φ
+∂ˆyθ
+(20)
+This strategy of computing gradients through the projection
+layer via implicit differentiation, rather than considering
+every iteration in Algorithm 1, provides an efficient back-
+propagation scheme for training.
+IV. CONVERGENCEANALYSIS
+In this section, we show that the LMI-Net alternating
+projection satisfies standard Douglas-Rachford assumptions
+and therefore converges to a point that satisfies the LMI
+constraint.
+Lemma 1 (Eigenvalue clipping as a Euclidean projection):
+For a symmetric matrix ¯Xwith eigendecompositionUΛU T ,
+the eigenvalue clipping operationUmax(0,Λ)U T is the
+Euclidean projection onto the positive semidefinite cone.
+Proof:The Euclidean projection onto the positive
+semidefinite cone is
+argmin
+X
+|| ¯X−X|| 2
+F subject toX∈S +
+whereS + denotes the set of all real symmetric positive
+semidefinite matrices. Note that for a symmetric matrix,
+the eigenvector matrixUis unitary (i.e.,U T U=I). The
+Frobenius norm is unitarily invariant, which gives
+|| ¯X−X|| 2
+F =||U T ¯XU−U T XU|| 2
+F =||Λ−U T XU|| 2
+F .
+argmin
+x
+||Λ−U T XU|| 2
+F subject toX∈S +.
+DefineW=U T XU. WhenXis positive semidefinite,W
+is too. To see this, considerz T W z=z T U T XU z= ¯zT X¯z
+with¯z=U z. Clearly, whenX⪰0, thenW⪰0. The
+Euclidean projection can then be written asX ∗ =U W ∗U T ,
+where
+W ∗ =argmin
+W
+||Λ−W|| 2
+F subject toW∈S +
+=argmin
+W
+X
+i
+X
+j
+(Λij −W ij)2 subject toW∈S +
+=argmin
+W∈S +
+X
+i
+(Λii −W ii)2 +
+X
+i̸=j
+(Wij)2.
+The optimalWis therefore diagonal. To see this, con-
+siderD=diag([W 11, W22, . . . , Wnn]). WhenW⪰0, its
+diagonals are nonnegative, soD⪰0.Dnever gives a larger
+objective value thanW, since the off-diagonals can only
+increase the objective. Therefore, the optimalWwill be
+diagonal, giving the new objective
+w∗ =argmin
+w
+X
+i
+(λi −w i)2 subject tow i ≥0,
+whereλandware the diagonal elements ofΛandW,
+respectively. Clearly, this objective is minimized with the
+clipping operatorw=max(0, λ). This givesX ∗ =
+U W∗U T =Umax(0,Λ)U T , which is equivalent to the
+eigenvalue clipping operation.
+Remark 1 (On the symmetry of ¯X):Lemma 1 requires
+that ¯Xis symmetric. That is, the input into the projection
+ontoC 2, defined by (11), must be symmetric. The alternating
+nature of the Douglas-Rachford algorithm means the projec-
+tion ontoC 1, defined in (15), should output a symmetricX.
+The projectionΠ C1 is guaranteed to output a symmetricx
+because it satisfies the constraintF(y) =Xby design.F(y)
+is defined in (1) to be a linear combination of symmetric
+matrices, soXis symmetric by design.
+Theorem 1:AssumeC 1,C 2 are closed, nonempty, convex
+sets andC 1 ∩ C2 ̸=∅. Then the sequencez k generated by
+Algorithm 1 converges to a fixed pointz ⋆ of the Douglas-
+Rachford operator, and the shadow sequence
+wk = ΠC1(zk,ˆyθ)
+converges to a pointw ⋆ ∈ C1 ∩ C2. In particular, the output
+y⋆ = Πm(w⋆)satisfies the LMI conditionF(y)⪰0.
+Proof:SinceC 1 andC 2 are convex, their indicator func-
+tionsI C1(z)andI C2(z)are convex, making the objectives
+f(z) =||y−ˆy θ||2 +I C1(z)andg(z) =I C2(z)convex.
+By Lemma 1,Π C2(z)is the true proximal operator for
+g(z) =I C2(z). By definition,Π C1(z,ˆyθ)is the true proximal
+operator forf(z) =||y−ˆy θ||2 +I C1(z). Therefore, Algo-
+rithm 1 is exactly an instance of Douglas-Rachford applied to
+the problem of minimizing||y−ˆy θ||2 subject toy∈ C 1 ∩ C2.
+The convergence therefore follows from standard Douglas-
+Rachford results [20, Corollary 28.3] [21, Corollary 1].
+V. NUMERICALEXPERIMENTS
+We evaluate LMI-Net on two problems for linear systems
+under disturbance: (i) invariant ellipsoid synthesis and (ii)
+joint controller and invariant ellipsoid design. For both tasks,
+we compare LMI-Net against a soft-constrained baseline
+trained with the same augmented loss described in (21) and
+against CVXPY/SCS [22] as a solver baseline. The compar-
+ison metrics we report are constraint violation, runtime, and
+closed-loop instability when applicable. For ease of exposi-
+tion, we provide detailed descriptions of the learning problem
+formulation under LMI constraints, dataset construction, and
+hyperparameter choice in the appendix.
+It is worth noting that at inference time, the fixed LMI-Net
+can be adapted naturally to different Douglas-Rachford (DR)
+iterations. The number of DR iterations, therefore, provides
+--- Page 6 ---
+a practical tuning parameter that trades off feasibility with
+computation speed, as the algorithm provably converges to
+a feasible point under increasing iterations.
+A. Invariant Ellipsoid Synthesis
+We first evaluate the disturbed linear-system invariant
+ellipsoid synthesis problem introduced in Section II-C. We
+test on the training distribution and on two out-of-distribution
+testing datasets: OOD-SLOW, which moves eigenvalues
+closer to the imaginary axis and therefore has slower dy-
+namics; OOD-LARGE, which increases the magnitude of the
+disturbance. Table I reports violation fractions, and Table II
+reports runtime.
+The soft-constrained baseline degrades significantly in fea-
+sibility under distribution shift, with violation rates of 94.4%
+on OOD-SLOWand 77.7% on OOD-LARGE. In contrast,
+LMI-Net improves strict constraint satisfaction monotoni-
+cally as more DR iterations are used at inference time.
+At 2000 iterations, violations are already zero on TRAIN
+and OOD-SLOW. With 4000 iterations, LMI-Net matches
+CVXPY feasibility on all three datasets, while remaining
+9-35×faster than CVXPY/SCS. These results show that
+the hard-constrained approach in LMI-Net substantially im-
+proves out-of-distribution feasibility while preserving fast
+inference.
+TABLE I
+CONSTRAINT VIOLATION FRACTION ON TRAINING AND TESTING SETS
+Method TRAINOOD-SLOWOOD-LARGE
+Soft constrained model 12.0% 94.4% 77.7%
+LMI-Net (DR 500) 12.9% 2.8% 26.0%
+LMI-Net (DR 1000) 4.9% 1.4% 12.7%
+LMI-Net (DR 2000)0.0% 0.0%2.7%
+LMI-Net (DR 3000)0.0% 0.0%0.3%
+LMI-Net (DR 4000)0.0% 0.0% 0.0%
+CVXPY/SCS 0.0% 0.0% 0.0%
+TABLE II
+COMPUTATION TIME COMPARISON(MS/SAMPLE)
+Method TRAINOOD-SLOWOOD-LARGE
+Soft constrained model 0.2 0.6 0.1
+LMI-Net (DR 500) 0.8 5.3 1.4
+LMI-Net (DR 1000) 0.7 4.6 1.1
+LMI-Net (DR 2000) 1.0 5.7 1.6
+LMI-Net (DR 3000) 1.1 5.8 1.5
+LMI-Net (DR 4000) 1.5 7.6 2.1
+CVXPY/SCS 53.3 72.0 56.8
+B. Joint Controller and Invariant Ellipsoid Design
+We next consider joint synthesis of a stabilizing feedback
+controller and an invariant ellipsoid for a disturbed linear
+system. We test on the training distribution and an out-of-
+distribution (OOD) testing dataset, which increases the mag-
+nitude of unstable eigenvalues in the open-loop dynamics.
+Tables III and IV report violation rate, closed-loop instability,
+and runtime on the training and OOD datasets, respectively.
+The soft-constrained baseline fails to satisfy the LMI
+constraint, and can destabilize the system, especially on
+OOD samples, where 79.2% of predictions are infeasible
+and 56.7% produce unstable closed-loop dynamics. LMI-Net
+eliminates closed-loop instability with 1000 DR iterations
+on both datasets, and continues to improve feasibility as the
+number of inference-time DR iterations increases. Figure 1
+further illustrates this contrast on a representative OOD
+sample: LMI-Net produces a stabilizing controller whose
+trajectories remain within the certified invariant ellipsoid,
+while the soft-constrained model outputs a destabilizing gain.
+On the training set, LMI-Net reaches zero violations
+at 3000 iterations while remaining 3.5×faster than
+CVXPY/SCS. On the OOD set, its violation percentage drops
+from 14.6% at 500 iterations to 3.4% at 4000 iterations.
+These observations validate the practical advantage of the
+LMI-Net, where the number of DR iterations serves as a
+tunable speed-feasibility tradeoff parameter.
+TABLE III
+PERFORMANCE COMPARISON ON THE TRAINING DATASET
+Method violation % CL unstable % ms/sample
+Soft constrained model 46.6% 3.2% 0.003
+LMI-Net (DR 500) 3.2%0.0%0.208
+LMI-Net (DR 1000) 1.2%0.0%0.414
+LMI-Net (DR 2000) 0.6%0.0%0.826
+LMI-Net (DR 3000)0.0% 0.0%1.234
+LMI-Net (DR 4000)0.0% 0.0%1.638
+CVXPY (SCS)0.0% 0.0%4.290
+TABLE IV
+PERFORMANCE COMPARISON ON THE OUT-OF-DISTRIBUTION DATASET
+Method violation % CL unstable % ms/sample
+Soft constrained model 79.2% 56.7% 0.006
+LMI-Net (DR 500) 14.6% 0.6% 0.331
+LMI-Net (DR 1000) 9.0%0.0%0.661
+LMI-Net (DR 2000) 5.6%0.0%1.317
+LMI-Net (DR 3000) 4.5%0.0%1.973
+LMI-Net (DR 4000) 3.4%0.0%2.628
+CVXPY (SCS)0.0% 0.0%5.067
+Fig. 1. Our proposed LMI-Net with 3000 DR iterations during evaluation
+jointly learned a stabilizing feedback controller and an invariant ellipsoid,
+while the soft-constrained model outputs a feedback gain that results in an
+unstable closed-loop system.
+--- Page 7 ---
+VI. CONCLUSIONS
+We introduced LMI-Net, a modular differentiable projec-
+tion layer that turns a standard neural network into a feasible-
+by-construction model that satisfies linear matrix inequality
+(LMI) constraints. By decomposing the LMI-constrained set
+into an affine constraint and a positive semidefinite cone,
+we leveraged Douglas-Rachford (DR) splitting to design an
+iterative forward pass and an efficient backward pass through
+implicit differentiation. We provide theoretical results that
+establish formal convergence guarantees as the number of
+DR iterations increases. In the numerical experiments based
+on classical LMI reformulations, LMI-Net substantially re-
+duced constraint violation instances and improved closed-
+loop stability compared to soft-constrained models, while
+retaining lower computation cost over solving each semidef-
+inite program from scratch. The experiments also highlight
+a practical advantage of the LMI-Net design, where DR
+iterations provide a simple knob for trading computation for
+tighter feasibility without retraining. Future work includes
+scaling to higher-dimensional problems with advanced back-
+bone architectures and extending the framework to practical
+control tasks such as tube MPC and contraction-metric-based
+controller synthesis.
+APPENDIX
+Soft-constrained Approaches for LMI-constrained Learning
+Current soft-constrained approaches incorporate a regular-
+ization term that penalizes constraint violation, an example
+of which is outlined in the following optimization problem.
+Lsoft(θ) = 1
+Ntrain
+NtrainX
+i=1
+
+c(ˆy(ξ(i);θ))
+−β softλmin(F(ˆy(ξ(i);θ);ξ (i)))
+
+(21)
+Here,λ min(·)is the minimum eigenvalue of the matrix, and
+βsoft >0is a weighting parameter. This approach cannot
+provide guarantees of constraint satisfaction, especially onξ
+values outside the training distributions.
+Additional Details in Numerical Experiments
+We provide implementation details of numerical ex-
+periments in this section. In both experiments, the soft-
+constrained baseline and LMI-Net use the same two-layer
+MLP backbone with 64 neurons per layer and ReLU activa-
+tions, and both are trained with the augmented loss in (21)
+withβ soft = 100. At inference time, the LMI-Net (fixed after
+training) is run with{500,1000,2000,3000,4000}Douglas-
+Rachford (DR) iterations to study the runtime-feasibility
+tradeoff without retraining.
+Invariant ellipsoid problem
+We use the linear system under disturbance, introduced in
+Section II-C, withn x = 2,n w = 1, and fixedα= 0.1.
+When creating the datasets, each matrixAis generated as
+A=Udiag(λ 1, λ2)U ⊤,
+whereλ i ∼Uniform(−λ max,−λ min)andUis drawn
+uniformly from the orthogonal group. Each entry ofB w is
+sampled independently fromN(0, σ 2
+Bw).
+The training distribution uses(λ min, λmax, σBw) =
+(0.5,5.0,1.0). For the two out-of-distribution (OOD) testing
+sets, OOD-SLOWis generated with(0.05,0.5,1.0), and
+OOD-LARGEwith(0.5,5.0,3.0).
+The network maps the flattened input(A, B w)to the
+upper-triangular entries ofP. The objectivecin (2a) is
+defined as−log det(P), which would minimize the volume
+of the invariant ellipsoid. Both models are trained with Adam
+for 500 epochs. For LMI-Net, we useσ= 0.1and 500
+DR iterations during training. A sample is counted towards
+constraint violation when the maximum eigenvalue of the
+LMI residual in the left-hand side of (5) is positive.
+Joint controller and invariant ellipsoid problem
+We consider a linear system with control input under
+bounded disturbance, assuming that(A, B)is stabilizable:
+˙x=Ax+Bu+B ww, w ⊤w≤1.(22)
+The goal is to jointly design a feedback gainKand an
+invariant ellipsoid{x:x ⊤P x≤1}under the control law
+u=Kx. Following the reformulation in [1], using the
+change of variablesQ=P −1 andY=KQ, the problem
+can be reduced to the following LMI:
+QA⊤ +AQ+Y ⊤B⊤ +BY+αQ B w
+B⊤
+w −αI
+
+⪯0, Q⪰εI,
+(23)
+withε= 10 −3, and the fixed S-procedure parameterα=
+0.1. The two constraints are combined into a single block-
+diagonal LMI. After solving for(Q, Y), the controller is
+recovered asK=Y Q −1 and the invariant ellipsoid as
+E(Q) ={x:x ⊤Q−1x≤1}.
+Each sample in the training and testing datasets is a tuple
+(A, B, Bw). Both matricesB∈R 2×1 andB w ∈R 2×1 are
+filled with entries drawn fromN(0,1), same for both training
+and testing sets. Each eigenvalue magnitude in matrixA∈
+R2×2,|λ i|, is drawn uniformly from[λ min, λmax], and its
+sign is assigned differently in the training set and testing set.
+The training set draws each eigenvalue magnitude uniformly
+from[0.1,1.0], then assigns a positive sign to each eigenvalue
+with 50% probability independently. The out-of-distribution
+(OOD) test set shifts to eigenvalue magnitudes in[0.3,1.5]
+with all samples having one unstable eigenvalue. We filter
+out the samples within these datasets where(A, B)are not
+stabilizable.
+The neural network maps the flattened input
+(vech(A),vec(B),vec(B w))∈R 7 to the decision variables
+(vech(Q),vec(Y))∈R 5. The objectivecin (2a) is chosen
+aslog det(Q), which minimizes the invariant ellipsoid
+volume. We train both the soft-constrained model and our
+LMI-Net with Adam for 1000 epochs on the same training
+dataset. The LMI-Net is trained with 500 DR iterations and
+σ= 0.01.
+The evaluation metricViolation fractionrefers to the
+percentage of samples whose maximum eigenvalue violation
+--- Page 8 ---
+of the LMI constraint exceeds 0. The metricCL instability
+refers to the percentage of samples for whichA+BKhas
+at least one eigenvalue with a positive real part. The metric
+Computation timereports the wall-clock milliseconds per
+sample, evaluated on a workstation with an Intel Ultra 9
+285K CPU and an NVIDIA RTX5080 GPU.
+REFERENCES
+[1] S. Boyd, L. El Ghaoui, E. Feron, and V . Balakrishnan,Linear matrix
+inequalities in system and control theory. SIAM, 1994.
+[2] A. Alessio and A. Bemporad, “A survey on explicit model predictive
+control,” inNonlinear model predictive control: towards new chal-
+lenging applications, pp. 345–369, Springer, 2009.
+[3] P. Apkarian and H. D. Tuan, “Parameterized LMIs in control theory,”
+SIAM journal on control and optimization, vol. 38, no. 4, pp. 1241–
+1264, 2000.
+[4] R. Sambharya, G. Hall, B. Amos, and B. Stellato, “End-to-end learning
+to warm-start for real-time quadratic optimization,” inLearning for
+dynamics and control conference, pp. 220–234, PMLR, 2023.
+[5] P. D. Grontas, A. Terpin, E. C. Balta, R. D’Andrea, and J. Lygeros,
+“Pinet: Optimizing hard-constrained neural networks with orthogonal
+projection layers,” inInternational Conference on Learning Represen-
+tations (ICLR), 2026.
+[6] A. Bellon, D. Henrion, V . Kungurtsev, and J. Mare ˇcek, “Parametric
+semidefinite programming: geometry of the trajectory of solutions,”
+Mathematics of Operations Research, vol. 50, no. 1, pp. 410–430,
+2025.
+[7] C. Dawson, S. Gao, and C. Fan, “Safe control with learned certificates:
+A survey of neural lyapunov, barrier, and contraction methods for
+robotics and control,”IEEE Transactions on Robotics, vol. 39, no. 3,
+pp. 1749–1767, 2023.
+[8] J. Z. Kolter and G. Manek, “Learning stable deep dynamics models,”
+Advances in neural information processing systems, vol. 32, 2019.
+[9] N. Boffi, S. Tu, N. Matni, J.-J. Slotine, and V . Sindhwani, “Learning
+stability certificates from data,” inConference on Robot Learning,
+pp. 1341–1350, PMLR, 2021.
+[10] S. Tang, T. Sapsis, and N. Azizan, “Learning dissipative
+chaotic dynamics with boundedness guarantees,”arXiv preprint
+arXiv:2410.00976, 2024.
+[11] A. Goertzen, S. Tang, and N. Azizan, “ECO: Energy-constrained
+operator learning for chaotic dynamics with boundedness guarantees,”
+arXiv preprint arXiv:2512.01984, 2025.
+[12] L. Lindemann, H. Hu, A. Robey, H. Zhang, D. Dimarogonas, S. Tu,
+and N. Matni, “Learning hybrid control barrier functions from data,”
+inConference on robot learning, pp. 1351–1370, PMLR, 2021.
+[13] Y . Min, S. M. Richards, and N. Azizan, “Data-driven control with in-
+herent lyapunov stability,” in2023 62nd IEEE Conference on Decision
+and Control (CDC), pp. 6032–6037, IEEE, 2023.
+[14] N. Rezazadeh, M. Kolarich, S. S. Kia, and N. Mehr, “Learning
+contraction policies from offline data,”IEEE Robotics and Automation
+Letters, vol. 7, no. 2, pp. 2905–2912, 2022.
+[15] H. Tsukamoto, S.-J. Chung, and J.-J. E. Slotine, “Contraction theory
+for nonlinear stability analysis and learning-based control: A tutorial
+overview,”Annual Reviews in Control, vol. 52, pp. 135–169, 2021.
+[16] Y . Min and N. Azizan, “HardNet: Hard-constrained neural net-
+works with universal approximation guarantees,”arXiv preprint
+arXiv:2410.10807, 2024.
+[17] J. Tordesillas, J. P. How, and M. Hutter, “RAYEN: Imposition
+of hard convex constraints on neural networks,”arXiv preprint
+arXiv:2307.08336, 2023.
+[18] P.-L. Lions and B. Mercier, “Splitting algorithms for the sum of two
+nonlinear operators,”SIAM Journal on Numerical Analysis, vol. 16,
+no. 6, pp. 964–979, 1979.
+[19] V . A. Yakubovich, “S-procedure in nonlinear control theory,”V estnik
+Leningrad University Mathematics, vol. 4, pp. 73–93, 1977. English
+translation; original Russian publication inV estnik Leningradskogo
+Universiteta, Seriya Matematika(1971), pp. 62–77.
+[20] H. H. Bauschke and P. L. Combettes, “Convex analysis and monotone
+operator theory in hilbert spaces,” Springer.
+[21] D. Davis and W. Yin, “Convergence rate analysis of several splitting
+schemes,” inSplitting methods in communication, imaging, science,
+and engineering, pp. 115–163, Springer, 2017.
+[22] S. Diamond and S. Boyd, “CVXPY: A Python-embedded modeling
+language for convex optimization,”Journal of Machine Learning
+Research, vol. 17, no. 83, pp. 1–5, 2016.

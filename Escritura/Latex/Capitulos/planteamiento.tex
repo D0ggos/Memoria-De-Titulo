@@ -1,0 +1,136 @@
+\chapter{Desarrollo Metodológico}
+\label{ch:desarrollo}
+
+\section{Descripción y Preprocesamiento del Conjunto de Datos}
+\label{sec:descripcion_datos}
+
+Para llevar a cabo el entrenamiento y la validación de las arquitecturas de aprendizaje profundo con restricciones duras, es indispensable contar con un conjunto de datos estandarizado que represente fielmente los desafíos del control robusto. Para este propósito, se utiliza una base de datos de Sistemas Lineales de Parámetros Variables (LPV) politópicos en tiempo continuo, provista por investigadores de la Universidad Estatal de Campinas (UNICAMP).
+
+\subsection{Estructura de la Base de Datos y Proceso de Extracción}
+
+La base de datos original (\texttt{DB\_ssf\_RS\_500\_c.mat}) está organizada internamente como un arreglo multidimensional, diseñado para indexar un vasto espacio combinatorio de sistemas estudiados y formulados matemáticamente por \rev{el grupo de Control Robusto de la Facultad de Ingeniería Eléctrica y de Computación de la Universidad Estatal de Campinas (UNICAMP), liderado por R.~C.~L.~F.~Oliveira y P.~L.~D.~Peres. Corresponde a la colección de polítopos de sistemas robustamente estabilizables empleada en sus rutinas de análisis y síntesis de control robusto vía LMIs \cite{oliveira2008robust, robustdatabase_unicamp}}. Estos sistemas están categorizados según cuatro dimensiones topológicas fundamentales: el orden dinámico del sistema ($n_x$), la cantidad de entradas de control ($n_u$), el número de vértices que delimitan el polítopo de incertidumbre ($N$) y el número de instancias para cada combinación (en este caso, 500 sistemas válidos por cada familia estructural).
+
+A nivel de estructura de datos, la información se encuentra empaquetada en un formato nativo orientado a celdas (\textit{cell arrays}) de MATLAB. Cada una de estas celdas aloja los componentes matriciales que definen el comportamiento de una planta física particular:
+\begin{itemize}
+    \item \textbf{Matrices de Estado ($A_i$):} Arreglos tridimensionales de tamaño $N \times n_x \times n_x$, donde cada submatriz $A_i$ describe la dinámica intrínseca en lazo abierto de la planta cuando opera en el vértice $i$ del polítopo de incertidumbre.
+    \item \textbf{Matrices de Entrada ($B_i$):} Arreglos tridimensionales de tamaño $N \times n_x \times n_u$, representando cómo las señales de los actuadores afectan los estados del sistema en cada vértice $i$.
+    \item \textbf{Ganancias de Control Objetivo ($K$):} Matrices de dimensiones $n_u \times n_x$ que representan controladores estáticos pre-calculados (usualmente mediante optimizadores convexos tradicionales) que estabilizan simultáneamente a todos los vértices. Aunque en un enfoque auto-supervisado la red ignora estas etiquetas, su existencia certifica matemáticamente que los sistemas extraídos son \textbf{Robustamente Estabilizables} (RS), garantizando que el espacio factible del problema no es vacío.
+\end{itemize}
+
+El primer paso del desarrollo consistió en diseñar un pipeline en Python capaz de abrir este archivo binario, iterar a través de las jerarquías de celdas de MATLAB, extraer las matrices $A$, $B$ y transicionarlas hacia tensores en precisión doble (\textit{float64}), un formato requerido para garantizar la estabilidad de PyTorch y el solucionador iterativo.
+
+Para los experimentos principales de esta investigación, y con el fin de establecer una prueba de concepto sólida sin introducir complejidades computacionales innecesarias en etapas tempranas, el proceso de extracción se configuró para aislar un subconjunto específico: sistemas de tercer orden ($n_x = 3$), controlados por un único actuador ($n_u = 1$) y definidos por dos vértices operativos ($N = 2$). La elección de trabajar con dos vértices no es trivial; geométricamente representa un segmento de recta en el espacio de parámetros, encapsulando la forma más pura de incertidumbre paramétrica. Mantener esta dimensionalidad constante es crucial para la red neuronal, ya que evita la necesidad de recurrir a técnicas de relleno (\textit{zero-padding}) que destruirían las propiedades de positividad estricta requeridas por las Desigualdades Matriciales Lineales (LMI).
+
+
+\section{Arquitectura LMI-Net y Proyección Matricial Diferenciable}
+\label{sec:arquitectura_lminet}
+
+Una vez establecido el flujo de datos estructurado, el siguiente pilar metodológico es el diseño de la arquitectura capaz de procesarlos. La arquitectura empleada en esta memoria es \textit{LMI-Net}, propuesta originalmente por \rev{Tang, Goertzen y Azizan \cite{tang2026lminet}}, la cual incorpora una capa de proyección matricial diferenciable que transforma una red neuronal genérica en un optimizador de control con garantías de factibilidad. Esta sección describe su funcionamiento conceptual, estructurado en tres etapas operativas, y la adaptación realizada para abordar sistemas LPV politópicos.
+
+\subsection{Del Caso Nominal LTI al Caso Robusto Politópico}
+\label{subsec:lti_a_lpv}
+\rev{La formulación original de LMI-Net \cite{tang2026lminet} se demuestra sobre un sistema lineal invariante en el tiempo (LTI) único, es decir, una sola pareja de matrices $(A, B)$ definida por un conjunto de parámetros $\xi$. En dicho caso, la condición de estabilidad o de invariancia se expresa mediante una única restricción matricial $F(y) \succeq 0$, donde el vector $y$ codifica los grados de libertad de la matriz de Lyapunov (y, en el problema de síntesis conjunta, también de la ganancia).
+
+El problema abordado en esta memoria es estructuralmente más exigente: la estabilización robusta de un sistema LPV politópico requiere que un \emph{mismo} certificado de Lyapunov y una \emph{misma} ganancia de control sean válidos de forma simultánea en todos los vértices del polítopo de incertidumbre. La extensión desde el caso nominal LTI hacia este caso robusto no exige rediseñar el mecanismo de proyección, sino reconocer y explotar una propiedad ya contemplada en la formulación general de la arquitectura: una restricción $F(y) \succeq 0$ puede representar de forma equivalente un conjunto finito de $N$ restricciones matriciales acopladas mediante su composición en bloque diagonal,
+\begin{equation}
+    F(y) = \operatorname{diag}\!\left( F^{(1)}(y),\, F^{(2)}(y),\, \dots,\, F^{(N)}(y) \right) \succeq 0
+    \iff
+    F^{(i)}(y) \succeq 0, \;\; \forall i \in \{1, \dots, N\}.
+    \label{eq:bloque_diagonal}
+\end{equation}
+
+La condición de estabilidad cuadrática robusta presentada en la Sección~\ref{sec:lazo_cerrado} consiste precisamente en una familia de $N$ desigualdades matriciales, una por cada vértice $(A_i, B_i)$, que comparten las mismas variables de decisión $Q$ e $Y$. En consecuencia, el paso del caso LTI al caso LPV politópico se materializa apilando las $N$ desigualdades de los vértices ---junto a la restricción de positividad estricta $Q \succeq \epsilon I$--- en una única restricción matricial bloque-diagonal de la forma~\eqref{eq:bloque_diagonal}. Esta restricción ampliada conserva exactamente la estructura sobre la que opera la capa de proyección: la única consecuencia práctica es que el subespacio afín $C_1$ codifica ahora la dinámica de todos los vértices del polítopo, y que la proyección sobre el cono semidefinido positivo $C_2$ se aplica sobre una matriz de mayor dimensión compuesta por los $N+1$ bloques. El algoritmo de proyección descrito en las subsecciones siguientes permanece inalterado, operando sobre un espacio de restricciones de dimensión superior.}
+
+\subsection{Levantamiento del Espacio de Restricciones (Lifting Scheme)}
+Proyectar la salida no restringida de una red neuronal directamente sobre una Desigualdad Matricial Lineal acoplada no admite una solución analítica en forma cerrada. Para sortear esta limitación, la arquitectura implementa un esquema de levantamiento (\textit{lifting scheme}). 
+
+Este enfoque introduce una variable matricial auxiliar $X$ que permite elevar el problema a un espacio de mayor dimensión, descomponiendo la restricción compleja original en la intersección de dos conjuntos convexos fundamentales y espacialmente independientes:
+\begin{equation}
+    C_1 = \left\{ (y, X) : F_0 + \sum y_i F_i = X \right\}, \quad C_2 = \left\{ (y, X) : y \in \mathbb{R}^m, X \succeq \epsilon I \right\}
+\end{equation}
+El conjunto $C_1$ describe un subespacio afín que encapsula la topología de la planta física y la linealidad de la parametrización de Lyapunov. Por otro lado, $C_2$ representa el cono semidefinido positivo (PSD). La inclusión paramétrica del escalar $\epsilon > 0$ actúa como un hiperparámetro de margen de seguridad, forzando teóricamente a que la matriz propuesta se mantenga en el interior estricto del cono de positividad.
+
+\subsection{Pase hacia Adelante: Algoritmo de Douglas-Rachford}
+Una vez que el problema se ha separado en los conjuntos $C_1$ y $C_2$, se requiere un método capaz de encontrar un punto que pertenezca a la intersección de ambos ($C_1 \cap C_2$). Para esto, en la etapa de propagación hacia adelante (\textit{forward pass}) se emplea el algoritmo de división de Douglas-Rachford (DR).
+
+La ventaja fundamental de este algoritmo radica en que permite abordar restricciones complejas descomponiéndolas en operaciones más simples. En lugar de resolver la LMI de forma directa, DR intercala proyecciones sobre cada conjunto individual. En términos prácticos, por cada iteración del algoritmo se realizan los siguientes pasos:
+\begin{itemize}
+    \item \textbf{Proyección sobre el espacio afín ($C_1$):} consiste en resolver un problema de mínimos cuadrados para encontrar la matriz que satisfaga la estructura lineal impuesta por la dinámica del sistema. Dado que esta proyección equivale a resolver un sistema de ecuaciones lineales, la matriz de pseudo-inversa se precomputa una única vez, lo que reduce significativamente el costo de esta etapa durante la inferencia.
+    \item \textbf{Proyección sobre el cono semidefinido positivo ($C_2$):} se toma la matriz resultante del paso anterior y se calcula su descomposición espectral, extrayendo sus autovalores y autovectores. Si algún autovalor es menor que el umbral de seguridad $\epsilon$, se recorta (fijándolo en $\epsilon$) y se reconstruye la matriz, asegurando que sea definida positiva.
+\end{itemize}
+
+El algoritmo repite este proceso de proyección alternada entre ambos conjuntos, combinando los resultados mediante un paso de relajación. Bajo las hipótesis estándar de convergencia del método ---conjuntos cerrados, convexos y de intersección no vacía---, la sucesión de iterados converge a un punto que satisface la LMI por construcción, con independencia de la predicción inicial generada por la red neuronal \cite{tang2026lminet}.
+
+\subsection{Pase hacia Atrás: Desenrollado Algorítmico (Algorithm Unrolling)}
+Para que la red neuronal pueda actualizar sus pesos durante el entrenamiento, es necesario calcular cómo varía la función de pérdida respecto a cada parámetro de la red. Convencionalmente, esto se realiza mediante retropropagación (\textit{backpropagation}). Sin embargo, en esta arquitectura la salida de la red no es la salida final, sino que atraviesa el bucle iterativo de Douglas-Rachford, lo que plantea la cuestión de cómo propagar el gradiente a través de un procedimiento de optimización iterativo.
+
+Para resolver esto se emplea el concepto de \textbf{Desenrollado Algorítmico} (\textit{Algorithm Unrolling}). Su principio consiste en tratar cada iteración del ciclo de Douglas-Rachford como una capa adicional de la red neuronal. Si el algoritmo se itera 30 veces, dicho ciclo se ``desenrolla'' en 30 operaciones secuenciales diferenciables dentro del grafo computacional de PyTorch.
+
+De esta manera, las proyecciones dejan de ser un procedimiento opaco para el motor de diferenciación y se convierten en operaciones diferenciables, cuyo gradiente puede calcularse explícitamente. Al evaluar la función de costo al final de este recorrido desenrollado, el motor de diferenciación automática aplica la regla de la cadena y propaga el gradiente a través de todas las iteraciones hasta alcanzar los pesos del modelo. Este enfoque incrementa el consumo de memoria, pero permite entrenar la red en conjunto con las restricciones físicas de forma directa. \rev{La formulación original de LMI-Net \cite{tang2026lminet} contempla, de manera alternativa, el uso de diferenciación implícita basada en el Teorema de la Función Implícita para evitar este costo de memoria; dicha alternativa se discute en el Capítulo de conclusiones como línea de trabajo futuro.}
+
+
+\section{Criterios de Desempeño y Formulación de Optimización}
+\label{sec:criterios_desempeno}
+
+Dado que la capa de proyección matemática descrita asume la responsabilidad de estabilizar el sistema, el diseño en lazo cerrado transiciona metodológicamente hacia un problema de optimización sin restricciones desde la perspectiva del entrenamiento de la red.
+
+\subsection{Aprendizaje Auto-Supervisado en Dinámica de Sistemas}
+Convencionalmente, las arquitecturas neuronales requieren que algoritmos clásicos de punto interior generen leyes de control óptimas fuera de línea para realizar clonación de comportamiento. Esta investigación propone un paradigma \textbf{auto-supervisado} arraigado en la física del modelo.
+
+Al no depender de etiquetas, la función de pérdida ($\mathcal{L}$) se formula directamente como el valor promedio del criterio de desempeño evaluado sobre un lote de sistemas dinámicos:
+\begin{equation}
+    \mathcal{L}(\theta) = \frac{1}{N_{batch}} \sum_{j=1}^{N_{batch}} c(y(\xi^{(j)}; \theta))
+\end{equation}
+La red se comporta como un optimizador autónomo, aprendiendo a inferir la parametrización de la matriz de Lyapunov ($Q$) y la ganancia ($Y$) que minimicen intrínsecamente la función de costo $c(\cdot)$.
+
+\subsection{Formulación de las Funciones de Pérdida Físicas}
+Se establecen dos criterios de desempeño robusto clásicos, los cuales la red optimizará de forma aislada a lo largo de los experimentos.
+
+\subsubsection{Criterio 1: Maximización de la Tasa de Decaimiento}
+Busca disipar la energía transitoria con la mayor rapidez posible, maximizando la tasa $\alpha > 0$. Las matrices propuestas son forzadas a cumplir:
+\begin{equation}
+    (A_i Q + B_i Y)^T + (A_i Q + B_i Y) + 2\alpha Q \prec 0, \quad \forall i \in \{1, 2\}
+\end{equation}
+La función de pérdida para el optimizador estocástico se define matemáticamente como la penalización del valor negativo de la tasa propuesta: $\mathcal{L}_{\alpha} = - \alpha$.
+
+\subsubsection{Criterio 2: Minimización del Volumen del Elipsoide Invariante}
+Se centra en el rechazo a perturbaciones exógenas, confinando los estados dentro de una región de atracción mínima. El volumen geométrico es proporcional a $\det(P^{-1/2})$, lo cual, bajo el cambio $Q = P^{-1}$, equivale a minimizar el negativo del logaritmo del determinante. Por ende, la función de costo se formula como: $\mathcal{L}_{vol} = - \log \det(Q)$.
+
+
+\section{Diseño y Especificaciones de la Arquitectura Neuronal}
+\label{sec:especificaciones_red}
+
+Para alimentar la capa de proyección de la LMI-Net descrita en la Sección~\ref{sec:arquitectura_lminet}, se requiere procesar las matrices dinámicas del sistema a través de un sustrato neuronal tradicional. \rev{Este sustrato se denomina \textit{backbone}: corresponde a la red neuronal base ---en este caso un Perceptrón Multicapa--- encargada de transformar la descripción del sistema físico en una predicción inicial de los parámetros de control, antes de que la capa de proyección imponga las restricciones de estabilidad. En otras palabras, el \textit{backbone} propone una solución candidata y la capa LMI-Net la corrige hasta volverla factible.} En esta sección se detallan las decisiones de diseño arquitectónico, dimensionalidad y funciones de activación de la red neuronal empleada para los experimentos principales.
+
+\subsection{Dimensionalidad de Entrada y Salida}
+Para abordar la estabilización robusta de sistemas con dos vértices ($N=2$), un actuador ($n_u=1$) y tercer orden dinámico ($n_x=3$), la red debe ingerir toda la información topológica del polítopo de incertidumbre. 
+
+Cada sistema se representa mediante matrices de estado $A_i \in \mathbb{R}^{3 \times 3}$ y matrices de entrada $B_i \in \mathbb{R}^{3 \times 1}$, para $i \in \{1, 2\}$. Estas matrices son aplanadas vectorialmente y concatenadas, generando un único vector de características de entrada unidimensional. El tamaño de este vector se calcula como la suma de los elementos de todas las matrices del polítopo: $N \cdot (n_x \cdot n_x) + N \cdot (n_x \cdot n_u) = 2 \cdot (9) + 2 \cdot (3) = 24$ características.
+
+En el extremo de salida, la red neuronal densa debe predecir una estimación cruda (no restringida) del vector de parámetros $y$, el cual dicta los grados de libertad de las matrices $Q$ e $Y$. Dado que $Q \in \mathbb{R}^{3 \times 3}$ es una matriz simétrica, posee $\frac{n_x(n_x+1)}{2} = 6$ grados de libertad únicos correspondientes a su triángulo superior. La matriz $Y \in \mathbb{R}^{1 \times 3}$ aporta $n_u \cdot n_x = 3$ grados adicionales. En consecuencia, la dimensión final de salida de la red es exactamente de $9$ parámetros.
+
+\subsection{Topología Multicapa (Perceptrón) y Funciones de Activación}
+El \textit{backbone} consiste en un Perceptrón Multicapa (MLP) de diseño superficial pero ensanchado, estructurado en tres capas densas (\textit{Fully Connected}):
+\begin{itemize}
+    \item \textbf{Capa de Entrada a Oculta 1:} Transformación lineal de 24 entradas a 128 neuronas ocultas.
+    \item \textbf{Capa Oculta 1 a Oculta 2:} Transformación lineal de 128 neuronas a 128 neuronas.
+    \item \textbf{Capa de Salida:} Transformación lineal de 128 neuronas a los 9 parámetros de control proyectables.
+\end{itemize}
+
+En el diseño del \textit{backbone}, la elección de la función de activación condiciona cómo fluye la información no lineal a través de las capas. En lugar de la función de activación ReLU, se incorpora la función \textbf{Mish} ($f(x) = x \tanh(\ln(1 + e^x))$). Esta decisión se fundamenta en dos razones:
+\begin{enumerate}
+    \item \textbf{Suavidad y diferenciabilidad continua:} A diferencia de ReLU, que tiene un quiebre brusco en cero y no es diferenciable en ese punto, Mish es una curva suave en todo su dominio. Cuando propagamos los gradientes a través de un algoritmo altamente sensible y numéricamente estricto como Douglas-Rachford, cualquier salto abrupto en la derivada puede causar inestabilidades severas. La suavidad de Mish ayuda a que el paisaje de optimización sea mucho más dócil.
+    \item \textbf{Preservación de gradientes negativos:} ReLU "apaga" por completo cualquier neurona con valor negativo, descartando información que podría ser valiosa. Mish, en cambio, permite el paso de pequeños valores negativos, previniendo el problema de las "neuronas muertas" y facilitando que la red explore mejor el espacio de soluciones para encontrar matrices de control óptimas.
+\end{enumerate}
+
+Junto a Mish, se incorpora \textbf{Normalización de Capa (LayerNorm)} después de cada transformación lineal. En sistemas dinámicos, los valores de los parámetros de las matrices pueden variar en varios órdenes de magnitud. LayerNorm re-escala y centra las activaciones internamente en cada muestra, de forma independiente al tamaño del lote (\textit{batch}). Esto estabiliza el entrenamiento, evita que los valores de entrada al algoritmo de Douglas-Rachford crezcan sin control y garantiza que las proyecciones se realicen con magnitudes numéricas manejables.
+
+\subsection{Recuento de Parámetros Entrenables}
+El diseño propuesto, a pesar de su simplicidad estructural, provee suficiente capacidad expresiva para parametrizar el espacio de control robusto. La cantidad total de pesos y sesgos entrenables en el \textit{backbone} asciende a $20,745$ parámetros, distribuidos de la siguiente forma:
+\begin{itemize}
+    \item Capa 1: $(24 \times 128) + 128 \text{ (sesgos)} + 256 \text{ (LayerNorm)} = 3,456$ parámetros.
+    \item Capa 2: $(128 \times 128) + 128 \text{ (sesgos)} + 256 \text{ (LayerNorm)} = 16,768$ parámetros.
+    \item Capa 3: $(128 \times 9) + 9 \text{ (sesgos)} = 1,161$ parámetros.
+\end{itemize}
+Este recuento compacto se traduce en tiempos de inferencia reducidos y un bajo consumo de memoria en el \textit{backbone}, una característica relevante dado que debe complementarse con el costo computacional de la capa de Douglas-Rachford iterativa.
+\input{Capitulos/encoder_deepsets}

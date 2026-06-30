@@ -1,0 +1,343 @@
+\documentclass[12pt,twoside]{report}
+\usepackage[utf8x]{inputenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[inner=2.5cm,outer=2cm,top=1.5cm,bottom=2cm]{geometry}
+\usepackage{amssymb,amsmath,amsthm,amsfonts}
+\usepackage[linesnumbered,algochapter,spanish]{algorithm2e}
+\usepackage[small,center,bf]{caption}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{array}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+\setlength{\parindent}{12pt}
+
+\titleformat{\chapter}
+{\bfseries\large}{\chaptertitlename~ \thechapter. }{0pt}
+{}
+\titleformat{\section}
+{\bfseries\large}{\thesection. }{0pt}
+{}
+
+\begin{document}	
+	\pagestyle{empty}
+%%%%%%%%%% Portada
+	\begin{titlepage}
+		\includegraphics[height=55pt]{escudoUdeC 1.pdf} % Descomentar si tienes el logo
+		\begin{minipage}[b][60pt][c]{70ex}
+			\bfseries
+			UNIVERSIDAD DE CONCEPCIÓN\\
+			FACULTAD DE INGENIERÍA\\
+			DEPARTAMENTO DE INGENIERÍA INFORMÁTICA\\
+			Y CIENCIAS DE LA COMPUTACIÓN
+		\end{minipage}
+		\vspace{3cm}
+		
+		\begin{center}	
+			\uppercase{\large\textbf{Diseño de un Meta-Controlador Basado en Deep Learning con Garantías de Estabilidad en Dominios Politópicos para Sistemas con Incertidumbre}}
+
+			\vspace{1.5cm}
+			POR
+			\bigskip
+
+			\textbf{Pedro Pablo Muñoz Solano}
+
+			\vspace{2cm}
+			{Propuesta de Memoria de Título}
+		
+			\vspace{2cm}	
+			Profesor Guía
+
+			Hugo Garcés Hernández
+
+			\bigskip
+			Profesor co-guía
+
+			Jonathan Palma Olate
+			
+
+		\end{center}
+	\end{titlepage}
+
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%  Cuerpo principal del documento  %%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\clearpage
+	\pagenumbering{arabic} 
+	
+\chapter{Introducción}
+\label{sec:intro}
+
+En el panorama contemporáneo de la automatización avanzada, los denominados sistemas ciberfísicos —aquellas entidades donde el procesamiento computacional y los procesos físicos se entrelazan íntimamente— exigen algoritmos de gestión cada vez más resilientes para operar en entornos de alta variabilidad. El núcleo de este desafío reside en la capacidad de un sistema para mantener su integridad operativa o, en términos técnicos, su \textit{estabilidad}. Conceptualmente, la estabilidad puede entenderse como una propiedad de autocrítica del sistema: es la capacidad de disipar perturbaciones externas y retornar de manera autónoma a un estado de equilibrio o a una trayectoria deseada \cite{khalil2002}.
+
+Históricamente, el diseño de estos mecanismos de corrección ha seguido una evolución de complejidad creciente, análoga a la transición desde algoritmos de lógica estática hacia sistemas dinámicamente adaptables:
+
+\begin{itemize}
+    \item \textbf{Sistemas de Dinámica Constante (LTI):} Representan el escenario más predecible, donde las reglas que rigen el cambio de estado del sistema no varían en el tiempo. En este contexto, es posible calcular una estrategia de respuesta única y óptima que garantiza la seguridad bajo cualquier circunstancia nominal.
+    
+    \item \textbf{Sistemas con Incertidumbre Paramétrica:} En la práctica, los modelos rara vez son reflejos exactos de la realidad. Para mitigar el riesgo de colapso ante el peor escenario posible, se recurre a estrategias de seguridad robustas que, si bien garantizan la integridad, tienden a ser excesivamente conservadoras, sacrificando la eficiencia en favor de la robustez estructural \cite{zhou1996}.
+    
+    \item \textbf{Sistemas de Parámetros Variantes (LPV):} Representan el nivel más alto de sofisticación, donde la naturaleza del sistema muta en función de variables medibles. Aquí, una estrategia estática es insuficiente y se requiere de un mecanismo de supervisión que ajuste las reglas de decisión en tiempo real.
+\end{itemize}
+
+El conflicto fundamental que se aborda en esta investigación es la dicotomía entre la \textit{seguridad absoluta} y la \textit{eficiencia operativa}. Mientras que los métodos clásicos ofrecen pruebas matemáticas de estabilidad infranqueables, su rigidez limita el desempeño. Por otro lado, las arquitecturas modernas de optimización basadas en datos ofrecen alta eficiencia pero carecen de una estructura interna que garantice, por diseño, que el sistema nunca entrará en un estado inestable.
+
+Esta memoria propone el diseño de un mecanismo de control inteligente que actúa como un puente entre ambos mundos. En lugar de permitir una exploración estocástica, el algoritmo propuesto navegará dinámicamente el espacio de ganancias de control que satisfacen formalmente las condiciones de estabilidad de Lyapunov, integrando principios de redes neuronales con garantías de estabilidad \cite{manek2019}. Al utilizar una base de datos de sistemas multivariable con regiones de estabilidad pre-calculadas mediante Inecuaciones Matriciales Lineales (LMI) \cite{boyd1994}, el modelo de aprendizaje profundo podrá optimizar el rendimiento asegurando que cada acción de control pertenezca, por construcción, al conjunto de soluciones robustas factibles.
+
+
+
+\section{Objetivos}
+\subsection{Objetivo General}
+Desarrollar un meta-controlador inteligente basado en arquitecturas de Deep Learning que optimice dinámicamente el desempeño de sistemas discretos, operando dentro del dominio de controladores robustos factibles (regiones LMI), para garantizar la estabilidad formal frente a dinámicas LTI inciertas y de Parámetros Variantes (LPV) \cite{boyd1994}.
+
+\subsection{Objetivos Específicos}
+\begin{enumerate}
+    \item \textbf{Procesar y caracterizar} una base de datos de sistemas dinámicos discretos (LTI, LTI inciertos y LPV), extrayendo sus descriptores de estado y sus regiones de factibilidad para utilizarlos como el espacio de búsqueda seguro del agente de aprendizaje \cite{zhou1996}.
+    
+    \item \textbf{Diseñar e implementar una arquitectura de Deep Learning} y una función de costo restringida por estabilidad de Lyapunov que permita el mapeo dinámico de estados hacia ganancias de control óptimas que operen estrictamente dentro del dominio de factibilidad \cite{richards2018, amos2017}.
+    
+    \item \textbf{Validar el desempeño del meta-controlador} mediante simulaciones comparativas frente a controladores robustos estáticos y predictivos tradicionales, evaluando su capacidad de generalización ante diversos órdenes de sistema y condiciones de incertidumbre \cite{manek2019}.
+\end{enumerate}
+
+\section{Relación con los Objetivos de Desarrollo Sostenible}
+Este proyecto contribuye a los siguientes ODS de las Naciones Unidas:
+\begin{itemize}
+    \item \textbf{ODS 9: Industria, innovación e infraestructura.} Al proponer un algoritmo de IA que garantiza la estabilidad estructural, se fomenta el desarrollo de infraestructuras tecnológicas confiables y resilientes \cite{stein2003}.
+    \item \textbf{ODS 12: Producción y consumo responsables.} Un controlador basado en IA optimizado dinámicamente reduce el consumo de energía y la varianza de los procesos industriales.
+\end{itemize}
+
+\chapter{Revisión bibliográfica y Marco Teórico}
+\label{sec:revision}
+
+El desarrollo de este sistema requiere la convergencia sistemática de dos disciplinas: la Teoría de Control Moderno, que aporta las garantías físicas y matemáticas de seguridad, y el Aprendizaje Profundo (\textit{Deep Learning}), que provee la capacidad de optimización no lineal y adaptabilidad frente a datos complejos \cite{zhou1996}. 
+
+\section{Sistemas Dinámicos y el Espacio de Incertidumbre Politópica}
+
+Para que un algoritmo de inteligencia artificial pueda interactuar con un proceso físico, primero debemos abstraer dicho proceso a una estructura de datos matemáticamente manejable. En el tiempo discreto, la evolución de un sistema dinámico se modela mediante la ecuación de espacio de estados \cite{khalil2002}:
+
+\begin{equation}
+    x_{k+1} = A x_k + B u_k
+    \label{eq:estado_discreto}
+\end{equation}
+
+Desde una perspectiva de sistemas, esta expresión define la trayectoria del sistema en un espacio de $n$ dimensiones. Los componentes fundamentales de esta relación se definen de la siguiente manera:
+
+\begin{itemize}
+    \item \textbf{Vector de Estado ($x_k \in \mathbb{R}^n$):} Representa la "memoria" del sistema en el instante $k$, conteniendo toda la información necesaria (como posición, velocidad o temperatura) para predecir su comportamiento futuro.
+    
+    \item \textbf{Matriz de Transición de Estados ($A \in \mathbb{R}^{n \times n}$):} Es el operador que define la dinámica natural o autónoma del sistema. Matemáticamente, determina cómo el estado actual $x_k$ evoluciona hacia $x_{k+1}$ en ausencia de fuerzas externas. Podemos entenderla como la \textit{regla de transición autónoma}: si el sistema fuese un programa, $A$ sería el bucle lógico que define su comportamiento por defecto.
+    
+    \item \textbf{Matriz de Entrada o de Control ($B \in \mathbb{R}^{n \times m}$):} Es el operador que vincula las decisiones del controlador con el mundo físico. Define cómo el vector de control $u_k$ (la acción de la IA en este caso) impacta sobre cada una de las dimensiones del estado. Representa la \textit{interfaz de actuación}: es el canal que permite a nuestro algoritmo alterar la inercia definida por $A$.
+\end{itemize}
+
+Sin embargo, en el mundo real, estas "reglas de transición" rara vez son estáticas o perfectamente conocidas. Para modelar esta incertidumbre o variabilidad (Sistemas LPV), la teoría de control agrupa todas las posibles variaciones de la planta dentro de un \textbf{polítopo} \cite{boyd1994}. Geométricamente, un polítopo es una figura convexa multidimensional (análoga a un polígono en 2D o un cubo en 3D) que actúa como un contenedor de todas las dinámicas posibles del sistema. 
+
+Los \textbf{vértices} de este polítopo, denotados como $[A_i, B_i]$, representan los "peores escenarios" o las condiciones límite de operación observadas en la base de datos de sistemas. Cualquier estado real del sistema en un instante dado, denotado como $[A(\alpha), B(\alpha)]$, será siempre una combinación lineal convexa (un promedio ponderado) de estos vértices extremos \cite{boyd1994}:
+
+\begin{equation}
+    [A(\alpha), B(\alpha)] = \sum_{i=1}^{N} \alpha_i [A_i, B_i], \quad \text{sujeto a} \quad \sum_{i=1}^{N} \alpha_i = 1, \quad \alpha_i \ge 0
+\end{equation}
+
+El desafío del control robusto es diseñar una política algorítmica $u_k = K x_k$ que sea capaz de mantener el sistema seguro sin importar qué combinación de pesos $\alpha_i$ esté activa en ese momento \cite{zhou1996}.
+
+\section{Garantías de Estabilidad mediante Inecuaciones Matriciales Lineales (LMI)}
+
+Para asegurar que nuestro algoritmo no conduzca al sistema a un estado de falla crítica (inestabilidad), recurrimos al Segundo Método de Lyapunov \cite{khalil2002}. De manera intuitiva, este método busca definir una función de "energía virtual" del sistema, $V(x) = x^T P x$, y exige que cualquier acción de control ejecutada disipe estrictamente esa energía con el paso del tiempo.
+
+La matriz $P$ actúa como un tensor métrico que deforma el espacio, definiendo un elipsoide de seguridad alrededor del punto de equilibrio. Para que un controlador definido por la ganancia $K$ sea considerado formalmente estable en todo el espectro de incertidumbre, la siguiente Inecuación Matricial Lineal (LMI) debe cumplirse para \textbf{todos los vértices} del polítopo simultáneamente:
+
+\begin{equation}
+    (A_i + B_i K)^T P (A_i + B_i K) - P \prec 0 \quad \forall i \in \{1, \dots, N\}
+    \label{eq:lmi_condition}
+\end{equation}
+
+El símbolo $\prec 0$ indica que la matriz resultante es definida negativa, lo que matemáticamente certifica que el paso del estado $x_k$ al estado $x_{k+1}$ resultó en una contracción de la energía. El conjunto de todas las matrices $K$ que logran resolver este sistema de inecuaciones define el dominio continuo de \textit{soluciones robustas factibles}.
+
+\section{Optimización mediante Aprendizaje Profundo}
+
+Las herramientas clásicas de resolución LMI suelen devolver una única matriz de ganancia $K$ estática y altamente conservadora. Esta tesis propone un cambio de paradigma: parametrizar el controlador mediante una arquitectura de red neuronal profunda con pesos sinápticos $\phi$ \cite{amos2017}. Esta red actuará como un meta-controlador que mapea en tiempo real los estados y parámetros variantes hacia una familia de ganancias $K_\phi(\theta_k)$, navegando inteligentemente por el interior del dominio factible.
+
+A diferencia del control clásico, que suele limitarse a la minimización de un costo fijo cuadrático (LQR), el uso de \textit{Deep Learning} permite flexibilizar la función objetivo (la \textit{Loss Function}) para analizar y equilibrar múltiples criterios en conflicto. El problema de entrenamiento se formula de la siguiente manera:
+
+\begin{equation}
+    \min_{\phi} \mathcal{L}_{total} = \omega_1 \mathcal{L}_{desempeño} + \omega_2 \mathcal{L}_{f\acute{\imath}sica} + \lambda \mathcal{L}_{LMI}
+    \label{eq:optim_obj}
+\end{equation}
+
+Donde la arquitectura de la función de pérdida evalúa los siguientes compromisos (\textit{trade-offs}) \cite{manek2019}:
+
+\begin{itemize}
+    \item \textbf{Métricas de Desempeño ($\mathcal{L}_{desempeño}$):} Representa métricas clásicas de aprendizaje automático, como el Error Cuadrático Medio (MSE) respecto a una trayectoria de referencia, fomentando que la red actúe con agresividad para anular el error rápidamente \cite{richards2018}.
+    \item \textbf{Restricciones Físicas y Varianza ($\mathcal{L}_{f\acute{\imath}sica}$):} Cuantifica la "suavidad" de las acciones de control. Un análisis central de esta memoria de título será evaluar empíricamente qué ocurre al minimizar la varianza de la señal de control o al penalizar la entropía de la política.
+    \item \textbf{Penalidad de Estabilidad ($\mathcal{L}_{LMI}$):} Actúa como una restricción dura (\textit{hard constraint}) relajada matemáticamente. Si la salida de la red neuronal propone una ganancia que viola la inecuación de Lyapunov (\ref{eq:lmi_condition}), este término inyecta un gradiente de penalización masivo:
+\end{itemize}
+
+\begin{equation}
+    \textbf{Sujeto a:} \quad (A_i + B_i K_\phi)^T P (A_i + B_i K_\phi) - P \prec 0 \quad \forall i
+    \label{eq:optim_restriccion}
+\end{equation}
+
+Esta formulación permite que la inteligencia artificial se convierta en una herramienta de exploración analítica. A través del entrenamiento iterativo (\textit{backpropagation}), el agente buscará la frontera de Pareto óptima entre un comportamiento agresivo, la conservación de energía y la garantía estructural de que el sistema jamás abandonará el elipsoide de estabilidad de Lyapunov \cite{manek2019}.
+
+
+\chapter{Metodología}
+\label{sec:metodo}
+
+La metodología de esta investigación se centra en la transferencia de conocimiento desde modelos de control robusto pre-calculados hacia un entorno de aprendizaje profundo. El flujo de trabajo está diseñado para transformar una base de datos estática de sistemas dinámicos en un dataset dinámico para el entrenamiento de un meta-controlador neuronal.
+
+\section{Fase 1: Extracción y Construcción del Dataset (MATLAB a Python)}
+
+En esta etapa, el objetivo principal es la serialización de los datos técnicos entregados por el profesor co-guía. El enfoque se desplaza hacia la estructuración de la información.
+
+\begin{itemize}
+    \item \textbf{Extracción de Atributos:} Se utilizarán los scripts proporcionados para extraer de forma masiva las ternas $\{[A_i, B_i], P, K_{robust}\}$ de los archivos MATLAB que contienen los datos de sistemas. 
+    \item \textbf{Generación del Dataset para Python:} Se implementará un puente de datos para convertir las estructuras de MATLAB en archivos de formato abierto (como \texttt{.json} o \texttt{.h5}). Cada entrada del dataset contendrá:
+        \begin{enumerate}
+            \item Las matrices de los vértices del polítopo (la física del sistema).
+            \item La matriz de Lyapunov $P$ (el certificado de estabilidad ya resuelto).
+            \item La ganancia robusta original $K$ (el \textit{baseline} o línea base de control).
+        \end{enumerate}
+    \item \textbf{Hito de Control 1:} Disponibilidad de un dataset de entrenamiento en Python que indexe sistemas de distintos órdenes y niveles de incertidumbre.
+\end{itemize}
+
+\section{Fase 2: Arquitectura del Meta-Controlador y Función de Pérdida}
+
+Con los datos ya en el entorno de Deep Learning (PyTorch/TensorFlow), se procederá al diseño del agente inteligente.
+
+\begin{itemize}
+    \item \textbf{Codificación de la Estabilidad:} En lugar de resolver LMI en tiempo real, la red neuronal recibirá la matriz $P$ del dataset como una restricción de seguridad fija. La red aprenderá a proponer nuevas ganancias $K_{\phi}$ que deben satisfacer la inecuación de Lyapunov respecto a esa $P$ específica.
+    \item \textbf{Función de Pérdida Híbrida:} Se programará una \textit{Loss Function} que penalice cualquier salida que se aleje de la región de estabilidad certificada por $P$, permitiendo a la vez la optimización del desempeño (MSE) y la reducción de la varianza.
+    \item \textbf{Hito de Control 2:} Validación de la capa de salida de la red, asegurando que cualquier $K_{\phi}$ generado sea matemáticamente estable para los vértices del sistema cargado.
+\end{itemize}
+
+\section{Fase 3: Entrenamiento y Análisis de Trade-offs}
+
+Esta fase busca superar la solución estática de MATLAB mediante la exploración mediante redes neuronales.
+
+\begin{itemize}
+    \item \textbf{Problema de Optimización:} Se entrenará la red para navegar por el interior del dominio factible. Se analizará el comportamiento del sistema ante diferentes perfiles de recompensa: ¿Cómo varía la entropía del controlador cuando priorizamos la suavidad del actuador frente a la velocidad de respuesta? ¿Un error como el MSE aumentará o disminuirá si se prioriza una menor varianza de las salidas del sistema?
+    \item \textbf{Hito de Control 3:} Obtención de un modelo neuronal capaz de adaptar su ganancia en tiempo real, superando el carácter conservador de la solución robusta original.
+\end{itemize}
+
+\section{Fase 4: Evaluación y Benchmarking Comparativo}
+
+La fase final contrasta los resultados de la arquitectura programada frente a los datos originales.
+
+\begin{itemize}
+    \item \textbf{Validación Cruzada:} Se utilizarán los scripts de simulación dinámica  para comparar las trayectorias del estado $x_k$ usando la $K$ estática de MATLAB versus la $K_{\phi}$ dinámica de la red neuronal.
+    \item \textbf{Métricas de Comparación:} Se evaluará el costo acumulado, el esfuerzo de control (varianza de $u_k$) y la robustez ante parámetros variantes (LPV).
+    \item \textbf{Hito de Control 4:} Informe final de desempeño que cuantifique la mejora porcentual en la eficiencia del sistema gracias a la adaptación neuronal.
+\end{itemize}
+
+
+\section{Diagrama de Flujo de la Metodología}
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}[node distance=1.5cm and 1cm]
+        % Definición de estilos
+        \tikzstyle{fase} = [rectangle, rounded corners, minimum width=6.5cm, minimum height=1cm, text centered, draw=black, fill=blue!10, text width=6.2cm, font=\small\bfseries]
+        \tikzstyle{tecnica} = [rectangle, minimum width=5cm, minimum height=1cm, text centered, draw=gray, fill=white, text width=5cm, font=\scriptsize, italic]
+        \tikzstyle{hito} = [diamond, aspect=3, minimum width=4.5cm, minimum height=1cm, text centered, draw=black, fill=green!10, text width=4cm, font=\scriptsize\bfseries]
+        \tikzstyle{arrow} = [thick,->,>=stealth]
+
+        % Fase 1
+        \node (f1) [fase] {Fase 1: Extracción y Construcción del Dataset (MATLAB a Python)};
+        \node (t1) [tecnica, right=of f1] {Técnicas: Extracción de $\{[A,B], P, K\}$, serialización a JSON/H5.};
+        \node (h1) [hito, below=0.8cm of f1] {Hito 1: Dataset indexado en Python};
+
+        % Fase 2
+        \node (f2) [fase, below=0.8cm of h1] {Fase 2: Arquitectura del Meta-Controlador y Función de Pérdida};
+        \node (t2) [tecnica, right=of f2] {Técnicas: Redes MLP en PyTorch, Penalización de estabilidad fija por $P$.};
+        \node (h2) [hito, below=0.8cm of f2] {Hito 2: Salida $K_{\phi}$ restringida al dominio factible};
+
+        % Fase 3
+        \node (f3) [fase, below=0.8cm of h2] {Fase 3: Entrenamiento y Análisis de Trade-offs};
+        \node (t3) [tecnica, right=of f3] {Técnicas: Optimización multiobjetivo, análisis de varianza vs MSE.};
+        \node (h3) [hito, below=0.8cm of f3] {Hito 3: Convergencia de adaptación en tiempo real};
+
+        % Fase 4
+        \node (f4) [fase, below=0.8cm of h3] {Fase 4: Evaluación y Benchmarking Comparativo};
+        \node (t4) [tecnica, right=of f4] {Técnicas: Validación cruzada vs scripts de dinámica MATLAB.};
+        \node (h4) [hito, below=0.8cm of f4] {Hito 4: Cuantificación de mejora sobre baseline robusto};
+
+        % Conexiones principales
+        \draw [arrow] (f1) -- (h1);
+        \draw [arrow] (h1) -- (f2);
+        \draw [arrow] (f2) -- (h2);
+        \draw [arrow] (h2) -- (f3);
+        \draw [arrow] (f3) -- (h3);
+        \draw [arrow] (h3) -- (f4);
+        \draw [arrow] (f4) -- (h4);
+        
+        % Conexiones a técnicas (dashed)
+        \draw [dashed] (f1) -- (t1);
+        \draw [dashed] (f2) -- (t2);
+        \draw [dashed] (f3) -- (t3);
+        \draw [dashed] (f4) -- (t4);
+    \end{tikzpicture}
+    \caption{Diagrama de flujo del proceso de investigación, desde la extracción de datos en MATLAB hasta la validación del controlador neuronal.}
+    \label{fig:metodologia_flujo}
+\end{figure}
+
+\chapter{Resultados esperados y plan de trabajo}
+\label{sec:experimentos}
+
+El éxito de esta investigación se medirá a través de la entrega de productos técnicos y analíticos que validen la integración de la inteligencia artificial en el control robusto. Se espera lograr una contribución tangible mediante los siguientes resultados:
+
+\begin{itemize}
+    \item \textbf{Mecanismo de Ingesta de Datos (Pipeline):} Un conjunto de scripts en Python que automaticen la lectura de archivos \texttt{.mat} y la extracción de las ternas $\{[A_i, B_i], P, K_{robust}\}$, transformándolas en tensores compatibles con arquitecturas de Deep Learning.
+    \item \textbf{Meta-Controlador Neuronal Certificado:} Un modelo entrenado en PyTorch capaz de generar ganancias de control dinámicas que satisfagan estrictamente la condición de estabilidad de Lyapunov para cualquier sistema dentro de la base de datos evaluada.
+    \item \textbf{Análisis de Frontera de Pareto:} Un estudio detallado sobre el compromiso entre el desempeño dinámico (reducción de MSE) y el costo de actuación (varianza de la salida), comparando cuantitativamente la adaptabilidad de la red neuronal frente a la rigidez de las soluciones robustas clásicas.
+    \item \textbf{Repositorio de Código:} Un entorno documentado que permita la replicabilidad de los experimentos de entrenamiento y la validación frente a simuladores dinámicos.
+\end{itemize}
+
+\section{Cronograma de Actividades}
+
+El desarrollo del proyecto se extenderá por un periodo de 16 semanas, distribuidas de acuerdo con la complejidad técnica de cada fase de la metodología propuesta.
+
+\begin{table}[ht]
+    \centering
+    \small
+    \begin{tabular}{|c|p{8.5cm}|l|}
+        \hline
+        \textbf{Semana} & \textbf{Actividad} & \textbf{Etapa} \\ \hline
+        1-2 & Análisis técnico y teórico de la base de datos MATLAB y formalización de las restricciones LMI como funciones de penalidad. & Investigación \\ \hline
+        3-4 & Desarrollo del pipeline de datos para la migración de sistemas dinámicos desde MATLAB a tensores de PyTorch. & Diseño de Datos \\ \hline
+        5-6 & Implementación de la arquitectura del meta-controlador y diseño de la \textit{Loss Function} con restricciones de Lyapunov. & Implementación \\ \hline
+        7-9 & Entrenamiento del modelo en escenarios incrementales: Sistemas LTI nominales, con Incertidumbre y LPV. & Control IA \\ \hline
+        10-12 & Experimentación con perfiles de recompensa para el análisis de \textit{trade-offs} (MSE vs. Varianza vs. Estabilidad). & Optimización \\ \hline
+        13-14 & Pruebas de Benchmarking comparativo utilizando simulaciones dinámicas frente a la línea base robusta. & Evaluación \\ \hline
+        15-16 & Consolidación de resultados, análisis estadístico de métricas y redacción del informe final de memoria. & Documentación \\ \hline
+    \end{tabular}
+    \caption{Cronograma detallado del desarrollo del proyecto de Memoria de Título.}
+    \label{tab:cronograma}
+\end{table}
+
+\begin{thebibliography}{99}
+
+\bibitem{manek2019} 
+Manek, G., \& Kolter, J. Z. (2019). Learning Stable Deep Dynamics Models. \textit{NeurIPS}, 32.
+
+\bibitem{amos2017} 
+Amos, B., Xu, L., \& Kolter, J. Z. (2017). Input Convex Neural Networks. \textit{ICML}, 146-155.
+
+\bibitem{richards2018} 
+Richards, S. M., et al. (2018). The Lyapunov Neural Network: Adaptive Stability Certification for Safe Learning. \textit{CoRL}, 466-476.
+
+\bibitem{khalil2002} 
+Khalil, H. K. (2002). \textit{Nonlinear Systems} (3rd ed.). Prentice Hall.
+
+\bibitem{zhou1996} 
+Zhou, K., Doyle, J. C., \& Glover, K. (1996). \textit{Robust and Optimal Control}. Prentice Hall.
+
+\bibitem{boyd1994}
+Boyd, S., et al. (1994). \textit{Linear Matrix Inequalities in System and Control Theory}. SIAM.
+
+\end{thebibliography}
+
+\end{document}
