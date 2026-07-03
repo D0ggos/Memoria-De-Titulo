@@ -7,7 +7,7 @@ arquitectura por orden n_x, el entrenamiento y la evaluación.
 
 Núcleo del que depende:
   - data_loader.RobustControlMatlabDataset  (lectura/normalización de la BD)
-  - lmi_net_deepsets.LMINetDeepSets          (arquitectura Deep Sets + solver DR)
+  - vertices.LMINetVertices          (arquitectura Deep Sets + solver DR)
 """
 
 import numpy as np
@@ -15,7 +15,7 @@ import torch
 from torch.utils.data import random_split
 
 from pipeline.data_loader import RobustControlMatlabDataset
-from red.lmi_net_deepsets import LMINetDeepSets
+from red.core import lmi_blocks
 
 MAT_FILE = "DB_ssf_RS_500_c.mat"
 
@@ -56,26 +56,48 @@ def make_batches(items, batch=16, shuffle=True, rng=None, device="cpu"):
     return out
 
 
-# --------------------------- Pérdida y modelo ------------------------------
-def control_loss(Q, Y):
-    """Costo auto-supervisado: volumen (traza Q) + esfuerzo de control (||Y||_F^2)."""
+# --------------------------- Pérdidas --------------------------------------
+def paper_loss(Q, Y, A_poly, B_poly, alpha=0.01, epsilon=1e-3, beta_soft=100.0):
+    """Pérdida del paper LMI-Net (Ec. 21):
+        L = c(y*) − β_soft · λ_min(F(y*)),   con  c(y*) = +logdet(Q).
+
+    - `c = +logdet(Q)` (SIGNO POSITIVO): minimizar +logdet(Q) minimiza el volumen del
+      elipsoide E(Q)={x : xᵀQ⁻¹x ≤ 1}. (El signo negativo era un error de una versión
+      anterior; no se reintroduce.)
+    - logdet defensivo: eigvalsh(Q).clamp_min(1e-12).log().sum, para no dar NaN con Q
+      casi singular en épocas tempranas.
+    - λ_min(F): F es bloque-diagonal (N+1 bloques); λ_min = mínimo sobre bloques.
+      λ_min<0 penaliza violación residual; λ_min>0 premia margen interior. Ambos
+      efectos son intencionales.
+    - Se evalúa sobre la salida PROYECTADA (Q, Y), no sobre la predicción cruda.
+    """
+    logdetQ = torch.linalg.eigvalsh(Q).clamp_min(1e-12).log().sum(-1)              # (B,)
+    F_list = lmi_blocks(Q, Y, A_poly, B_poly, alpha, epsilon)                      # N+1 bloques
+    lam_min = torch.stack([torch.linalg.eigvalsh(0.5 * (F + F.transpose(-1, -2)))[..., 0]
+                           for F in F_list], dim=-1).min(dim=-1).values            # (B,)
+    return (logdetQ - beta_soft * lam_min).mean()
+
+
+def control_loss(Q, Y, A_poly=None, B_poly=None):
+    """Alternativa auto-supervisada (NO del paper): volumen (traza Q) + esfuerzo
+    (||Y||_F^2). Misma firma que paper_loss; ignora A_poly, B_poly."""
     vol = torch.diagonal(Q, dim1=-2, dim2=-1).sum(-1).mean()
     eff = (torch.linalg.matrix_norm(Y, ord="fro", dim=(1, 2)) ** 2).mean()
     return vol + 0.1 * eff
 
 
-def build_model(order, inputs=1, alpha=0.01, dr_iters=30, **kw):
-    """Crea UNA arquitectura Deep Sets para un orden n_x dado (N-invariante)."""
-    return LMINetDeepSets(n=order, m=inputs, alpha=alpha, dr_iters=dr_iters, **kw).double()
-
-
 # --------------------------- Entrenamiento ---------------------------------
 def train(model, train_items_by_N, epochs=20, lr=1e-3, batch=16,
-          seed=42, device="cpu", log_every=5):
-    """Entrena el modelo de un orden sobre TODOS sus N (bucket por N: cada lote
-    es uniforme en vértices, pero las épocas mezclan todos los N)."""
+          seed=42, device="cpu", log_every=5, loss_fn=None):
+    """Entrena el modelo sobre sus buckets (cada lote uniforme en (N, m)).
+    `loss_fn(Q, Y, A_poly, B_poly)`: por DEFECTO la pérdida del paper (Ec. 21),
+    enlazada a model.alpha/epsilon. Pasa `loss_fn=control_loss` para la alternativa
+    auto-supervisada (volumen + esfuerzo)."""
     torch.manual_seed(seed); np.random.seed(seed)
     model.to(device).train()
+    if loss_fn is None:
+        a, e = model.alpha, model.epsilon
+        loss_fn = lambda Q, Y, A, B: paper_loss(Q, Y, A, B, alpha=a, epsilon=e)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     rng = np.random.default_rng(seed)
     hist = []
@@ -88,7 +110,7 @@ def train(model, train_items_by_N, epochs=20, lr=1e-3, batch=16,
         for A, B in batches:
             opt.zero_grad()
             Q, Y = model(A, B)
-            loss = control_loss(Q, Y)
+            loss = loss_fn(Q, Y, A, B)
             if not torch.isfinite(loss):
                 continue
             loss.backward()

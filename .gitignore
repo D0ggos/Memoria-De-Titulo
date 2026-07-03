@@ -2,3 +2,4 @@
 .venv
 *.pyc
 .claude
+__pycache__/

@@ -1,0 +1,199 @@
+"""
+core.py
+=======
+Nucleo COMPARTIDO por las tres arquitecturas LMI-Net y por las dos estrategias de
+backpropagation. Aisla lo que es identico en todas para que las diferencias queden
+en archivos separados:
+
+  arquitectura (encoder)   -> vanilla.py / vertices.py / actuators.py
+  backpropagation          -> backprop_unrolling.py / backprop_implicit.py
+
+Aqui vive:
+  - construccion de la LMI robusta            (_compute_F, _construct_L_c)
+  - decodificacion  y -> (Q, Y)               (_y_to_matrices, _vec_to_Q)
+  - el forward de Douglas-Rachford COMPARTIDO  (_dr_precompute, _dr_iterate,
+    _dr_final_proj, _dr_step_single)  <- lo mismo para unrolling e implicita
+  - la seleccion de la estrategia de backprop  (self.solver)
+
+Se puede instanciar directamente como "solver sin encoder" (lo usan
+validate_projection.py y el benchmark de proyeccion).
+"""
+import torch
+import torch.nn as nn
+
+from .backprop_unrolling import UnrollingSolver
+from .backprop_implicit import ImplicitSolver
+
+
+def lmi_blocks(Q, Y, A_poly, B_poly, alpha, epsilon):
+    """Bloques F_i(y) de la LMI (N+1 bloques n×n simetricos) desde (Q, Y):
+        F_i     = -(A_i Q + Q A_iᵀ + B_i Y + Yᵀ B_iᵀ + 2·alpha·Q),  i = 1..N
+        F_{N+1} =  Q - epsilon·I
+    Helper COMPARTIDO por el solver (core._compute_F) y la perdida del paper
+    (training.paper_loss), para no duplicar la construccion de F.
+    A_poly:(B,N,n,n)  B_poly:(B,N,n,m)  Q:(B,n,n)  Y:(B,m,n)."""
+    B_sz, n = Q.shape[0], Q.shape[-1]
+    N = A_poly.shape[1]
+    F_list = []
+    for i in range(N):
+        A_i = A_poly[:, i, :, :]; B_i = B_poly[:, i, :, :]
+        Term = torch.bmm(A_i, Q) + torch.bmm(Q, A_i.transpose(1, 2)) + \
+               torch.bmm(B_i, Y) + torch.bmm(Y.transpose(1, 2), B_i.transpose(1, 2)) + \
+               2 * alpha * Q
+        F_list.append(-Term)
+    I = torch.eye(n, device=Q.device, dtype=Q.dtype).unsqueeze(0).expand(B_sz, -1, -1)
+    F_list.append(Q - epsilon * I)
+    return F_list
+
+
+class LMICore(nn.Module):
+    def __init__(self, n=3, m=1, N=2, alpha=0.1, epsilon=1e-5, dr_iters=100,
+                 sigma=0.01, backprop="unrolling"):
+        super().__init__()
+        self.n = n
+        self.m = m
+        self.N = N
+        self.alpha = alpha
+        self.epsilon = epsilon
+        self.dr_iters = dr_iters                 # iteraciones de DR (unrolling / inferencia)
+        self.sigma = sigma
+
+        # y = [vec(Q simetrica), vec(Y)].  dim_Q depende solo de n; dim_Y de (m, n).
+        self.dim_Q = (n * (n + 1)) // 2
+        self.dim_Y = m * n
+        self.dim_y = self.dim_Q + self.dim_Y
+        self.triu_indices = torch.triu_indices(row=n, col=n, offset=0)
+
+        # Config de la estrategia implicita (la lee ImplicitSolver)
+        self.implicit_max_iters = 4000
+        self.implicit_tol = 1e-9
+        self._set_solver(backprop)
+
+    # ------------------- seleccion de backpropagation -----------------
+    def _set_solver(self, backprop):
+        if backprop in ("unrolling", "unroll", UnrollingSolver.name):
+            self.solver = UnrollingSolver()
+        elif backprop in ("implicit", "implicita", ImplicitSolver.name):
+            self.solver = ImplicitSolver()
+        else:
+            raise ValueError(f"backprop desconocido: {backprop} (usa 'unrolling' | 'implicit')")
+        return self
+
+    def set_implicit(self, flag=True):
+        """Compatibilidad: activa/desactiva la diferenciacion implicita."""
+        return self._set_solver("implicit" if flag else "unrolling")
+
+    @property
+    def backprop(self):
+        return self.solver.name
+
+    @property
+    def use_implicit(self):
+        return self.solver.name == "implicit"
+
+    @use_implicit.setter
+    def use_implicit(self, flag):
+        self._set_solver("implicit" if flag else "unrolling")
+
+    def _project(self, y_hat, A_poly, B_poly):
+        """Proyecta y_hat sobre el conjunto factible de la LMI usando la estrategia
+        de backprop elegida (unrolling o implicita)."""
+        return self.solver.project(self, y_hat, A_poly, B_poly)
+
+    def forward(self, *args, **kwargs):
+        raise NotImplementedError("LMICore no tiene encoder; usa una subclase "
+                                  "(vanilla/vertices/actuators) o llama al solver directamente.")
+
+    # ------------------- decodificacion y -> (Q, Y) -------------------
+    def _vec_to_Q(self, vec_Q):
+        B_sz = vec_Q.shape[0]
+        Q = torch.zeros((B_sz, self.n, self.n), device=vec_Q.device, dtype=vec_Q.dtype)
+        Q[:, self.triu_indices[0], self.triu_indices[1]] = vec_Q
+        Q = Q + Q.transpose(1, 2) - torch.diag_embed(Q.diagonal(dim1=-2, dim2=-1))
+        return Q
+
+    def _y_to_matrices(self, y):
+        Q = self._vec_to_Q(y[:, :self.dim_Q])
+        Y = y[:, self.dim_Q:].view(-1, self.m, self.n)
+        return Q, Y
+
+    # ------------------- construccion de la LMI -----------------------
+    def _compute_F(self, y, A_poly, B_poly):
+        # A_poly: (B, N, n, n), B_poly: (B, N, n, m)
+        Q, Y = self._y_to_matrices(y)
+        return lmi_blocks(Q, Y, A_poly, B_poly, self.alpha, self.epsilon)
+
+    def _construct_L_c(self, A_poly, B_poly):
+        """L (B, (N+1)n^2, dim_y) y c (B, (N+1)n^2) tal que vec(F(y)) = L y + c."""
+        B_sz = A_poly.shape[0]; device = A_poly.device; dtype = A_poly.dtype
+        y_zero = torch.zeros(B_sz, self.dim_y, device=device, dtype=dtype)
+        c = torch.cat([F.view(B_sz, -1) for F in self._compute_F(y_zero, A_poly, B_poly)], dim=1)
+        L_cols = []
+        for j in range(self.dim_y):
+            y_ej = torch.zeros(B_sz, self.dim_y, device=device, dtype=dtype)
+            y_ej[:, j] = 1.0
+            col_j = torch.cat([F.view(B_sz, -1) for F in self._compute_F(y_ej, A_poly, B_poly)], dim=1) - c
+            L_cols.append(col_j.unsqueeze(-1))
+        return torch.cat(L_cols, dim=-1), c
+
+    # ------------------- forward de DR (compartido) -------------------
+    def _dr_precompute(self, A_poly, B_poly):
+        """Operador de la proyeccion: L, c y M_inv = (I + L^T L)^{-1}."""
+        B_sz = A_poly.shape[0]
+        L, c = self._construct_L_c(A_poly, B_poly)
+        I_y = torch.eye(self.dim_y, device=A_poly.device, dtype=A_poly.dtype).unsqueeze(0).expand(B_sz, -1, -1)
+        M_inv = torch.linalg.inv(I_y + torch.bmm(L.transpose(1, 2), L))
+        return L, c, M_inv
+
+    def _dr_iterate(self, y_hat, L, c, M_inv, iters, tol=0.0):
+        """Itera Douglas-Rachford (batcheado) y devuelve el estado final (y_k, x_k).
+        Es EL MISMO forward para unrolling e implicita; la diferencia (guardar grafo
+        o no) la decide quien lo llama. En el punto fijo, y_k = proyeccion Pi_C(y_hat).
+        Si tol>0, para temprano cuando el residual de DR cae bajo tol."""
+        B_sz = y_hat.shape[0]; block = self.n * self.n; nb = self.N + 1
+        Lt = L.transpose(1, 2); s2 = 2 * self.sigma
+        y_k = y_hat.clone()
+        x_k = torch.bmm(L, y_k.unsqueeze(-1)).squeeze(-1) + c          # = vec(F(y_hat))
+        for it in range(iters):
+            y_avg = (s2 * y_hat + y_k) / (s2 + 1.0)
+            term2 = torch.bmm(Lt, (c - x_k).unsqueeze(-1)).squeeze(-1)
+            y_w = torch.bmm(M_inv, (y_avg - term2).unsqueeze(-1)).squeeze(-1)
+            x_w = torch.bmm(L, y_w.unsqueeze(-1)).squeeze(-1) + c
+            xin = 2 * x_w - x_k
+            xv = []
+            for b in range(nb):
+                X = xin[:, b * block:(b + 1) * block].view(B_sz, self.n, self.n)
+                X = 0.5 * (X + X.transpose(1, 2))
+                lam, V = torch.linalg.eigh(X); lam = torch.relu(lam)
+                xv.append(torch.bmm(V, torch.bmm(torch.diag_embed(lam), V.transpose(1, 2))).reshape(B_sz, -1))
+            x_v = torch.cat(xv, dim=1)
+            incr = x_v - x_w                     # residual de DR (=0 solo en el punto fijo)
+            y_k = y_w
+            x_k = x_k + incr
+            if tol and it % 25 == 0 and it > 0 and incr.abs().max() < tol:
+                break
+        return y_k, x_k
+
+    def _dr_final_proj(self, y_hat, y_k, x_k, L, c, M_inv):
+        """Proyeccion final sobre C1 (afin) desde el estado (y_k, x_k)."""
+        y_avg = (2 * self.sigma * y_hat + y_k) / (2 * self.sigma + 1.0)
+        term2 = torch.bmm(L.transpose(1, 2), (c - x_k).unsqueeze(-1)).squeeze(-1)
+        return torch.bmm(M_inv, (y_avg - term2).unsqueeze(-1)).squeeze(-1)
+
+    def _dr_step_single(self, s, y_hat, L, c, M_inv):
+        """Una iteracion de DR para UN sistema (sin batch). Estado s = [y_k, x_k].
+        Es la funcion de punto fijo T cuya jacobiana usa la diferenciacion implicita."""
+        block = self.n * self.n; nb = self.N + 1; s2 = 2 * self.sigma
+        y_k = s[:self.dim_y]; x_k = s[self.dim_y:]
+        y_avg = (s2 * y_hat + y_k) / (s2 + 1.0)
+        y_w = M_inv @ (y_avg - L.t() @ (c - x_k))
+        x_w = L @ y_w + c
+        xin = 2 * x_w - x_k
+        xv = []
+        for b in range(nb):
+            X = xin[b * block:(b + 1) * block].view(self.n, self.n)
+            X = 0.5 * (X + X.t())
+            lam, V = torch.linalg.eigh(X); lam = torch.relu(lam)
+            xv.append((V @ torch.diag(lam) @ V.t()).reshape(-1))
+        x_v = torch.cat(xv)
+        return torch.cat([y_w, x_v - x_w + x_k])

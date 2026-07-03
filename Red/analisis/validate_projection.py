@@ -40,14 +40,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from pipeline.data_loader import RobustControlMatlabDataset
-from red.lmi_net import LMINet
+from red.core import LMICore
 
 
 # ---------------------------------------------------------------------------
 # Utilidades de construccion del operador F
 # ---------------------------------------------------------------------------
-def build_operator(model: LMINet, A_b: torch.Tensor, B_b: torch.Tensor):
-    """Devuelve L, c, M_inv para un batch (B, ...) usando el helper de LMINet."""
+def build_operator(model: LMICore, A_b: torch.Tensor, B_b: torch.Tensor):
+    """Devuelve L, c, M_inv para un batch (B, ...) usando el helper de LMICore."""
     L, c = model._construct_L_c(A_b, B_b)
     B_sz = A_b.shape[0]
     I_y = torch.eye(model.dim_y, dtype=A_b.dtype).unsqueeze(0).expand(B_sz, -1, -1)
@@ -55,7 +55,7 @@ def build_operator(model: LMINet, A_b: torch.Tensor, B_b: torch.Tensor):
     return L, c, M_inv
 
 
-def feasibility_min_eig(model: LMINet, y: torch.Tensor,
+def feasibility_min_eig(model: LMICore, y: torch.Tensor,
                         A_b: torch.Tensor, B_b: torch.Tensor) -> float:
     """min sobre todos los bloques F^(i)(y) del menor autovalor (>=0 == factible)."""
     F_list = model._compute_F(y, A_b, B_b)
@@ -69,7 +69,7 @@ def feasibility_min_eig(model: LMINet, y: torch.Tensor,
 # ---------------------------------------------------------------------------
 # Forward de Douglas-Rachford (replica de lmi_net.forward, parametrizado por y_hat)
 # ---------------------------------------------------------------------------
-def forward_dr(model: LMINet, y_hat: torch.Tensor,
+def forward_dr(model: LMICore, y_hat: torch.Tensor,
                L: torch.Tensor, c: torch.Tensor, M_inv: torch.Tensor,
                n_iters: int, sigma: float) -> torch.Tensor:
     B_sz = y_hat.shape[0]
@@ -116,7 +116,7 @@ def forward_dr(model: LMINet, y_hat: torch.Tensor,
 # ---------------------------------------------------------------------------
 # Forward de Dykstra (con las dos simplificaciones del problema)
 # ---------------------------------------------------------------------------
-def forward_dykstra(model: LMINet, y_hat: torch.Tensor,
+def forward_dykstra(model: LMICore, y_hat: torch.Tensor,
                     L: torch.Tensor, c: torch.Tensor, M_inv: torch.Tensor,
                     n_iters: int) -> torch.Tensor:
     B_sz = y_hat.shape[0]
@@ -156,7 +156,7 @@ def forward_dykstra(model: LMINet, y_hat: torch.Tensor,
 # ---------------------------------------------------------------------------
 # Verdad de terreno: proyeccion exacta via CVXPY/SCS
 # ---------------------------------------------------------------------------
-def cvxpy_projection(model: LMINet, y_hat_np: np.ndarray,
+def cvxpy_projection(model: LMICore, y_hat_np: np.ndarray,
                      A_np: np.ndarray, B_np: np.ndarray) -> tuple[np.ndarray, float]:
     """
     Resuelve  min ||y - y_hat||^2  s.a.  F_i(y) >= 0  para un solo sistema.
@@ -211,7 +211,7 @@ def run(args):
         raise SystemExit("Dataset vacio para esta topologia.")
     sample_idx = rng.choice(n_total, size=min(args.n_systems, n_total), replace=False)
 
-    model = LMINet(n=args.n, m=args.m, N=args.N,
+    model = LMICore(n=args.n, m=args.m, N=args.N,
                    alpha=args.alpha, epsilon=args.epsilon,
                    dr_iters=1, sigma=args.sigma).double()
 
