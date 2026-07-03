@@ -1,0 +1,124 @@
+% !TEX root = MuñozPedro_MT.tex
+\documentclass[11pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla,es-nodecimaldot]{babel}
+\usepackage[most]{tcolorbox}
+
+\newtcolorbox{algobox}{
+    enhanced,
+    breakable,          % permite que la caja se corte entre páginas si el algoritmo es largo
+    colback=gray!10,    % fondo gris — igual que backgroundcolor=gray!10 en tu lstset
+    colframe=black,
+    boxrule=0.4pt,
+    arc=0pt,             % esquinas rectas, no redondeadas
+    left=8pt, right=8pt, top=8pt, bottom=6pt,
+    boxsep=0pt,
+}
+
+% --- Geometría y Márgenes ---
+\usepackage[paper=letterpaper, inner=2.5cm, outer=2cm, bindingoffset=0.5cm, top=2.5cm, bottom=2cm, head=20.4pt]{geometry}
+
+% --- Estilo y Fuente ---
+\usepackage{lmodern}
+\usepackage{setspace}
+\onehalfspacing 
+\usepackage[parfill]{parskip}
+
+% --- Paquetes de Estructura y Estilo ---
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{booktabs,tabularx,tabularray,multirow,makecell}
+\usepackage[hidelinks]{hyperref}
+\usepackage{float,pdfpages}
+\usepackage{tikz}
+\usetikzlibrary{babel,positioning,calc}
+\usepackage{subcaption}
+\usepackage{algorithm2e}
+\usepackage{fancyhdr} % NECESARIO PARA ENCABEZADOS PROFESIONALES
+
+% --- Comandos Personalizados ---
+\newcommand{\pendiente}[1]{\textcolor{red}{\textbf{[PENDIENTE: #1]}}}
+% Comando para las correcciones/sugerencias de revisión (texto en azul para revisión del autor)
+\definecolor{revcolor}{RGB}{0,70,200}
+\newcommand{\rev}[1]{\textcolor{revcolor}{#1}}
+\newcommand{\revnota}[1]{\textcolor{revcolor}{\textbf{[REVISIÓN: #1]}}}
+
+% --- Configuración de Títulos ---
+\titleformat{\chapter}[hang]{\normalfont\huge\bfseries}{\thechapter.}{1em}{}
+\titleformat{\section}[hang]{\normalfont\Large\bfseries}{\thesection.}{1em}{}
+
+% --- Configuración de Encabezados (Estilo Tesis) ---
+\pagestyle{fancy}
+\fancyhf{} % Limpiar encabezados y pies
+\fancyhead[LE,RO]{\thepage} % Número de página en esquinas
+\fancyhead[LO]{\nouppercase{\rightmark}} % Sección en páginas impares
+\fancyhead[RE]{\nouppercase{\leftmark}} % Capítulo en páginas pares
+\renewcommand{\headrulewidth}{0.4pt} % Línea debajo del encabezado
+
+% --- Ajustes de Tabla ---
+\renewcommand{\arraystretch}{1.2}
+\decimalpoint
+
+\begin{document}	
+
+    % --- PORTADA ---
+	\pagestyle{empty}
+	\include{Portada} % Asegúrate de tener el archivo Portada.tex creado
+    
+    % --- FRONTMATTER ---
+    \pagenumbering{roman}
+    \pagestyle{plain}
+
+	\chapter*{Agradecimientos}
+
+
+Quiero agradecer en primer lugar a mi familia, concretamente a mis hermanos José, Juan y en especial a mi madre que influyó en forjar mi caracter, mi hambre por siempre querer superarme y ser una persona independiente, sin ellos y su apoyo incondicional a cualquier adversidad jamás podría llegar a donde he llegado.
+
+También agradecer a todas las personas y amigos con las que me he cruzado a lo largo de mi carrera universitaria. Si bien puede que mi historia con más de alguna de esas personas ya no tenga una continuación o no tengamos un contacto o cercanía como la de antaño en la actualidad, su paso por mi vida, valga la redundancia, vivirá para siempre en mis recuerdos en lo que puedo decir con certeza que son los mejores años que he vivido y siempre los recordaré con cariño. Sobretodo agradecer a la gente que de alguna u otra manera me ayudó ya sea en alguna asignatura haciendo más trabajo que yo ya que siempre pasaba enfocado en cualquier cosa menos la U o ayudándome de cualquier modo en realidad. Gracias a ustedes pude permitirme ser ambicioso y egoísta con mis sueños y metas.
+
+Quiero agradecer en partícular a algunas personas: Pelao, Blanchard, Krozz y Adodo que siempre me bancaron a pesar de cualquier cosa y siempre me tuvieron paciencia en las estupideces que podía llegar a decir y pensar por más loco que fuera. Cuando necesitaba que me tiraran para arriba siempre lo hicieron de manera incondicional, el valor de lo que hicieron por mi no tiene precio. Por otro lado a mis queridos amigos Rob, Sanwe, Chano, Óscar y Nico. Gracias a ustedes no puedo pedir una mejor vida universitaria. Con ustedes y las personitas de arriba siento haber vivido lo mejor de esta época. Creo pensar que ustedes estuvieron para mi en todas las maneras en las que se puede comportar y sentir un ser humano (o la gran mayoría al menos).
+
+
+El departamento de Informática no puede quedar afuera, gracias a todo el personal que fue parte de mi formación. A Mauricio por esas tardes fomes viendo Games Done Quick con pizza y todas las cosas que vivimos y etapas clave de mi vida que si bien no son tantas en comparación a otras personas mencionadas aquí no dejan de ser importantes. Al profesor José Fuentes por dejarme ser su ayudante, gracias a eso desperté mi gusto por la docencia y la academia, aparte de estar para charlar con confianza e influir en quitarme mi síndrome del impostor en algunas ocasiones.
+
+Agradecer a Jonathan por su orientación y exigencia para poder salir de mi zona de confort al hacer investigación, de él aprendí mucho.
+
+Finalmente agradacer a Hugo, desde el minuto cero tuvo fé en mi en el momento que me sentía más perdido, cuando más lo necesitaba para encontrarle un sentido a la carrera fuera de lo que me esperaba profesionalmente hablando. A pesar de todos mis altos y bajos, crisis existenciales y mis ``no sé que hacer'' siempre me apoyó y me tuvo muchísima paciencia a pesar de que muchas veces no sabía lo que estaba haciendo. Sin su ayuda no podría haber disfrutado el proceso de interesarme por un tema de investigación partiendo desde la mismísima nada para finalmente después de un proceso de constante aprendizaje durante dos años pude elaborar esta memoria de título.
+
+
+
+
+
+
+    
+	\chapter*{Resumen}
+    
+	\tableofcontents
+	\listoftables	
+	\listoffigures
+
+    % --- CUERPO PRINCIPAL ---
+	\newpage
+	\pagenumbering{arabic}
+	\pagestyle{fancy} % Aquí activamos los encabezados profesionales
+	
+    \include{Capitulos/Introduccion}
+    \include{Capitulos/Marco_teorico}
+    \include{Capitulos/planteamiento}
+	\include{Capitulos/experimentos}
+    \include{Capitulos/conclusiones}
+	
+    % --- BIBLIOGRAFÍA ---
+    % Se recomienda usar biblatex para mayor flexibilidad en tesis
+	\bibliographystyle{plain}
+	\bibliography{biblio}
+	
+    % --- APÉNDICES ---
+	\appendix
+	\renewcommand{\chaptertitlename}{Anexo}
+	\include{Capitulos/Anexo1} % Mueve el contenido del anexo a un archivo
+    
+\end{document}

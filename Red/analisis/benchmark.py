@@ -210,14 +210,19 @@ def _save_failures(fdf, fAB, outdir, summary=None):
 def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
                    dr_train=30, dr_eval=1000, epochs=15, batch=16, lr=1e-3,
                    alpha=0.01, limit=150, backprop="unrolling", implicit=None,
-                   loss_fn=None, seed=42, save_failures=False, log_every=0, verbose=True):
+                   loss_fn=None, seed=42, save_failures=False, log_every=0, verbose=True,
+                   compare_cvxpy=True, cvxpy_max_systems=20):
     """Entrena UNA arquitectura y evalua. `m` puede ser un entero o una LISTA
     (p.ej. m=[1,2]): entonces el modelo se entrena sobre varios nº de actuadores a
     la vez (solo 'actuadores', que es invariante a n_u) y se evalua por (m, N).
 
+    Si compare_cvxpy (default True), cada fila del df tambien trae `cvxpy_pct`:
+    % de sistemas de test con LMI factible segun CVXPY (verdad de terreno), para
+    comparar contra el `stable_pct` logrado por la red.
+
     Devuelve dict con: model, df (una fila por (m, N)), loss_hist, t_train_s,
-    mem_train_mb, stable_pct (media), infer_ms_per_sys, y (si save_failures) el
-    directorio de fallos de esta combinacion.
+    mem_train_mb, stable_pct (media), infer_ms_per_sys, cvxpy_pct (media, si
+    compare_cvxpy) y (si save_failures) el directorio de fallos de esta combinacion.
     """
     if implicit is not None:                       # alias legado
         backprop = "implicit" if implicit else "unrolling"
@@ -242,7 +247,11 @@ def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
                                    log_every=log_every, tag=f"[N={N}] ")
                 t_train += time.perf_counter() - t0
             mem = max(mem, mt.delta_mb)
-            df_rows.append(dict(m=mm, N=N, **_eval_stab(mdl, data[(mm, N)][1], dr_eval, alpha, batch)))
+            row = dict(m=mm, N=N, **_eval_stab(mdl, data[(mm, N)][1], dr_eval, alpha, batch))
+            if compare_cvxpy:
+                row["cvxpy_pct"], row["cvxpy_ms_per_sys"] = _cvxpy_stats(
+                    mdl, data[(mm, N)][1], cvxpy_max_systems)
+            df_rows.append(row)
             models[N] = mdl
         model = models
         df = pd.DataFrame(df_rows)
@@ -254,18 +263,30 @@ def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
                                loss_fn=loss_fn or _loss_for(model, arch), log_every=log_every)
             t_train = time.perf_counter() - t0
         mem = mt.delta_mb
-        df = pd.DataFrame([dict(m=mm, N=N, **_eval_stab(model, data[(mm, N)][1], dr_eval, alpha, batch))
-                           for mm in m_list for N in N_list])
+        rows = []
+        for mm in m_list:
+            for N in N_list:
+                row = dict(m=mm, N=N, **_eval_stab(model, data[(mm, N)][1], dr_eval, alpha, batch))
+                if compare_cvxpy:
+                    row["cvxpy_pct"], row["cvxpy_ms_per_sys"] = _cvxpy_stats(
+                        model, data[(mm, N)][1], cvxpy_max_systems)
+                rows.append(row)
+        df = pd.DataFrame(rows)
 
     res = dict(arch=arch, n=n, m=m, m_list=m_list, N_list=N_list, model=model, df=df,
                loss_hist=hist, t_train_s=t_train, mem_train_mb=mem,
                stable_pct=float(df.stable_pct.mean()),
                infer_ms_per_sys=float(df.infer_ms_per_sys.mean()),
+               cvxpy_pct=(float(df.cvxpy_pct.mean()) if "cvxpy_pct" in df else None),
+               cvxpy_ms_per_sys=(float(df.cvxpy_ms_per_sys.mean()) if "cvxpy_ms_per_sys" in df else None),
                config=dict(dr_train=dr_train, dr_eval=dr_eval, epochs=epochs, batch=batch,
                            lr=lr, alpha=alpha, limit=limit, backprop=backprop, seed=seed,
                            loss=("custom" if loss_fn else ("paper" if arch == "vanilla" else "control"))))
     if verbose:
-        print(f"[{arch}/{backprop}] n={n} m={m_list}  estabiliza={res['stable_pct']:.1f}%  "
+        cvxpy_msg = (f"  cvxpy_factible={res['cvxpy_pct']:.1f}%  "
+                     f"cvxpy_infer={res['cvxpy_ms_per_sys']:.1f}ms/sys"
+                     if res["cvxpy_pct"] is not None else "")
+        print(f"[{arch}/{backprop}] n={n} m={m_list}  estabiliza={res['stable_pct']:.1f}%{cvxpy_msg}  "
               f"train={t_train:.1f}s  mem_pico=+{mem:.0f}MB  "
               f"inferencia={res['infer_ms_per_sys']:.2f}ms/sys  loss_final={hist[-1]:.4f}")
 
@@ -318,13 +339,15 @@ _ARCH_NAME = {"LMINetVanilla": "vanilla", "LMINetVertices": "vertices", "LMINetA
 
 @torch.no_grad()
 def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
-                      normalize=True, labels=None, compare_cvxpy=False, save_failures=False):
+                      normalize=True, labels=None, compare_cvxpy=True, save_failures=False):
     """Evalua el modelo sobre TUS sistemas. `systems` = lista de politopos
     (A_poly, B_poly) construidos con system_to_polytope / polytope_from_vertices.
 
     Por sistema devuelve: estabilizado, peor autovalor de lazo cerrado, decay
-    logrado, tiempo de inferencia. Si compare_cvxpy, tambien si la LMI es
-    factible por CVXPY (verdad de terreno: existe certificado con margen alpha).
+    logrado, tiempo de inferencia (`infer_ms`). Con compare_cvxpy=True (default),
+    tambien si la LMI es factible por CVXPY (verdad de terreno: existe certificado
+    con margen alpha, columna `lmi_factible_cvxpy`) y su tiempo de solve
+    (`cvxpy_ms`) — para comparar directamente contra `infer_ms`.
     Si save_failures, guarda los NO estabilizados en el directorio de la combinacion
     resultados/benchmark/<arch>/<backprop>/manual/.
     """
@@ -346,7 +369,9 @@ def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
                    m=B.shape[-1], estabilizado=bool(we < 0), peor_autovalor_cl=we,
                    decay_logrado=-we, infer_ms=dt * 1000)
         if compare_cvxpy:
-            row["lmi_factible_cvxpy"] = _cvxpy_feasible(model, A, B)
+            feas, t_cvx = _cvxpy_solve(model, A, B)
+            row["lmi_factible_cvxpy"] = feas
+            row["cvxpy_ms"] = t_cvx * 1000 if t_cvx is not None else float("nan")
         rows.append(row)
         if we >= 0:
             fail_AB.append((A.numpy(), B.numpy()))
@@ -364,24 +389,49 @@ def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
     return df
 
 
-def _cvxpy_feasible(model, A, B):
-    """¿Existe (Q,Y) que satisface la LMI con margen alpha? (verdad de terreno)."""
+def _cvxpy_solve(model, A, B):
+    """Resuelve la proyeccion LMI por CVXPY para UN sistema (verdad de terreno,
+    y tiempo de referencia para comparar contra la inferencia de la red).
+    A: (N,n,n), B: (N,n,m) de UN sistema (sin dim de batch).
+    Devuelve (factible: bool|None, t_solve_s: float|None)."""
+    from analisis.validate_projection import cvxpy_projection
+    old_N = model.N
+    model.N = A.shape[0]           # cvxpy_projection lee model.N; debe ser el N real del sistema
     try:
-        from analisis.validate_projection import cvxpy_projection
-        y0 = np.zeros(model.dim_Q + B.shape[-1] * A.shape[1])
-        y_star, _ = cvxpy_projection(model, y0, A.numpy(), B.numpy())
-        return y_star is not None
+        y0 = np.zeros(model.dim_y)
+        y_star, t_solve = cvxpy_projection(model, y0, A.numpy(), B.numpy())
+        return y_star is not None, t_solve
     except Exception:
-        return None
+        return None, None
+    finally:
+        model.N = old_N
+
+
+def _cvxpy_stats(model, items, max_systems=20):
+    """% factible y tiempo medio de solve (ms/sistema) segun CVXPY (verdad de
+    terreno + costo de referencia), sobre a lo sumo `max_systems` de `items`
+    (una SDP por sistema es lento; con esto el costo queda acotado aunque
+    `limit`/N_list crezcan).
+    # ponytail: muestra los primeros max_systems en vez de todos; sube max_systems
+    # si necesitas el % / tiempo exacto sobre el set de test completo."""
+    sample = items[:max_systems]
+    results = [_cvxpy_solve(model, A, B) for A, B in sample]
+    feas = [f for f, _ in results if f is not None]
+    times = [t for _, t in results if t is not None]
+    pct = 100 * np.mean(feas) if feas else float("nan")
+    ms_per_sys = 1000 * np.mean(times) if times else float("nan")
+    return pct, ms_per_sys
 
 
 # ============================ figuras ====================================
 def plot_experiment(res):
-    """Loss por epoca + % estabilizado por N + resumen de metricas."""
-    fig, axs = plt.subplots(1, 2, figsize=(10, 3.4))
+    """Loss por epoca + % estabilizado por N + tiempo de inferencia (red vs CVXPY) por N."""
+    df = res["df"]
+    has_cvxpy_ms = "cvxpy_ms_per_sys" in df
+    n_panels = 3 if has_cvxpy_ms else 2
+    fig, axs = plt.subplots(1, n_panels, figsize=(5 * n_panels, 3.4))
     axs[0].plot(range(1, len(res["loss_hist"]) + 1), res["loss_hist"], marker=".")
     axs[0].set(xlabel="epoca", ylabel="loss", title=f"Entrenamiento [{res['arch']}]")
-    df = res["df"]
     ms = sorted(df.m.unique()); Ns = sorted(df.N.unique())
     x = np.arange(len(Ns)); w = 0.8 / len(ms)
     for i, mm in enumerate(ms):
@@ -394,31 +444,75 @@ def plot_experiment(res):
                title="Estabilizacion por N" + (" y m" if len(ms) > 1 else ""))
     if len(ms) > 1:
         axs[1].legend(fontsize=8)
+    if has_cvxpy_ms:
+        # tiempo de inferencia red vs CVXPY, agregado por N (media sobre m)
+        sub = df.groupby("N")[["infer_ms_per_sys", "cvxpy_ms_per_sys"]].mean().reindex(Ns)
+        w2 = 0.35
+        b1 = axs[2].bar(x - w2 / 2, sub.infer_ms_per_sys, w2, label="red", color="#1e8449", alpha=.85)
+        b2 = axs[2].bar(x + w2 / 2, sub.cvxpy_ms_per_sys, w2, label="CVXPY", color="#a93226", alpha=.85)
+        axs[2].bar_label(b1, fmt="%.1f", fontsize=7); axs[2].bar_label(b2, fmt="%.0f", fontsize=7)
+        axs[2].set_yscale("log")
+        axs[2].set_xticks(x); axs[2].set_xticklabels(Ns)
+        axs[2].set(xlabel="N (vertices)", ylabel="ms/sistema (log)",
+                   title="Inferencia: red vs CVXPY")
+        axs[2].legend(fontsize=8)
     c = res["config"]
+    cvxpy_txt = (f" | cvxpy {res['cvxpy_pct']:.1f}% ({res['cvxpy_ms_per_sys']:.0f}ms/sys)"
+                if res.get("cvxpy_pct") is not None else "")
     fig.suptitle(f"{res['arch']} / {c['backprop']} | n={res['n']} m={res['m']} | "
-                 f"estabiliza {res['stable_pct']:.1f}% | train {res['t_train_s']:.0f}s | "
+                 f"estabiliza {res['stable_pct']:.1f}%{cvxpy_txt} | train {res['t_train_s']:.0f}s | "
                  f"mem +{res['mem_train_mb']:.0f}MB | infer {res['infer_ms_per_sys']:.2f}ms/sys | "
                  f"DR_tr={c['dr_train']} DR_ev={c['dr_eval']}",
                  fontsize=9, y=1.03)
     fig.tight_layout(); return fig
 
 
-def compare(results, labels=None, metrics=("stable_pct", "t_train_s", "mem_train_mb", "infer_ms_per_sys")):
-    """Compara varias corridas (arquitecturas / configs) en barras."""
+def compare(results, labels=None,
+           metrics=("stable_pct", "cvxpy_pct", "t_train_s", "mem_train_mb")):
+    """Compara varias corridas (arquitecturas / configs) en barras. Incluye
+    `cvxpy_pct` (verdad de terreno) junto a `stable_pct`, y SIEMPRE un panel de
+    tiempo de inferencia red-vs-CVXPY (log-scale, mismo panel para comparar
+    directamente) si `infer_ms_per_sys`/`cvxpy_ms_per_sys` estan presentes.
+    Cualquier metrica ausente en algun resultado (p.ej. corrida con
+    compare_cvxpy=False) se salta sola."""
+    # infer_ms_per_sys / cvxpy_ms_per_sys SIEMPRE van en el panel combinado de abajo,
+    # nunca como barra generica (aunque vengan incluidas en `metrics`).
+    metrics = [mk for mk in metrics if mk not in ("infer_ms_per_sys", "cvxpy_ms_per_sys")
+              and all(r.get(mk) is not None for r in results)]
     labels = labels or [f"{r['arch']}#{i}" for i, r in enumerate(results)]
-    titles = {"stable_pct": "% estabilizados", "t_train_s": "tiempo train [s]",
-              "mem_train_mb": "mem pico [MB]", "infer_ms_per_sys": "inferencia [ms/sys]"}
-    fig, axs = plt.subplots(1, len(metrics), figsize=(3.2 * len(metrics), 3.2))
-    for ax, mkey in zip(np.atleast_1d(axs), metrics):
+    titles = {"stable_pct": "% estabilizados", "cvxpy_pct": "% factible LMI (CVXPY)",
+              "t_train_s": "tiempo train [s]", "mem_train_mb": "mem pico [MB]"}
+    has_infer = all(r.get("infer_ms_per_sys") is not None for r in results)
+    has_cvxpy_ms = all(r.get("cvxpy_ms_per_sys") is not None for r in results)
+    n_panels = len(metrics) + (1 if has_infer else 0)
+    fig, axs = plt.subplots(1, n_panels, figsize=(3.2 * n_panels, 3.2))
+    axs = np.atleast_1d(axs)
+    for ax, mkey in zip(axs, metrics):
         vals = [r[mkey] for r in results]
         b = ax.bar(labels, vals, color="#1e8449", alpha=.8)
         ax.bar_label(b, fmt="%.1f", fontsize=8); ax.set_title(titles.get(mkey, mkey))
         ax.tick_params(axis="x", rotation=20)
+    if has_infer:
+        ax = axs[-1]
+        x = np.arange(len(labels)); w = 0.35 if has_cvxpy_ms else 0.7
+        b1 = ax.bar(x - (w / 2 if has_cvxpy_ms else 0), [r["infer_ms_per_sys"] for r in results],
+                    w, label="red", color="#1e8449", alpha=.85)
+        ax.bar_label(b1, fmt="%.1f", fontsize=7)
+        if has_cvxpy_ms:
+            b2 = ax.bar(x + w / 2, [r["cvxpy_ms_per_sys"] for r in results], w,
+                       label="CVXPY", color="#a93226", alpha=.85)
+            ax.bar_label(b2, fmt="%.0f", fontsize=7)
+            ax.set_yscale("log")
+            ax.legend(fontsize=8)
+        ax.set_xticks(x); ax.set_xticklabels(labels, rotation=20)
+        ax.set_title("inferencia [ms/sys]" + (" (log, red vs CVXPY)" if has_cvxpy_ms else ""))
     fig.tight_layout(); return fig
 
 
 def compare_grid(archs=("vertices", "actuadores"), backprops=("unrolling", "implicit"),
-                 metrics=("stable_pct", "t_train_s", "mem_train_mb", "infer_ms_per_sys"), **common):
+                 metrics=("stable_pct", "cvxpy_pct", "t_train_s", "mem_train_mb",
+                          "infer_ms_per_sys", "cvxpy_ms_per_sys"),
+                 **common):
     """Corre TODAS las combinaciones arquitectura x backprop y las compara.
     `common` son los hiperparametros compartidos (n, N_list, m, dr_train, epochs, ...).
     Devuelve (tabla_resumen, results, figura)."""
@@ -433,12 +527,24 @@ def compare_grid(archs=("vertices", "actuadores"), backprops=("unrolling", "impl
 
 
 def plot_pole_shift(df, x="shift"):
-    """Para el barrido de pole-shift: decay logrado y estabilizacion vs shift."""
-    fig, ax = plt.subplots(figsize=(6.4, 3.6))
+    """Para el barrido de pole-shift: decay logrado/estabilizacion vs shift, y
+    (si esta la columna cvxpy_ms) tiempo de inferencia red vs CVXPY vs shift."""
+    has_cvxpy_ms = "cvxpy_ms" in df
+    fig, axs = plt.subplots(1, 2 if has_cvxpy_ms else 1,
+                            figsize=(12.4 if has_cvxpy_ms else 6.4, 3.6))
+    ax = axs[0] if has_cvxpy_ms else axs
     ax.plot(df[x], df["decay_logrado"], marker="o", color="#2471a3", label="decay logrado")
     ax.axhline(0, ls="--", color="k", alpha=.5)
     ax.fill_between(df[x], 0, df["decay_logrado"].max(), where=df["estabilizado"],
                     color="#2471a3", alpha=.08)
     ax.set(xlabel="shift aplicado a los polos (A -> A + shift·I)",
            ylabel="decay logrado  -max Re λ(A+BK)", title="Respuesta al desplazamiento de polos")
-    ax.legend(); fig.tight_layout(); return fig
+    ax.legend()
+    if has_cvxpy_ms:
+        axs[1].plot(df[x], df["infer_ms"], marker="o", color="#1e8449", label="red")
+        axs[1].plot(df[x], df["cvxpy_ms"], marker="o", color="#a93226", label="CVXPY")
+        axs[1].set_yscale("log")
+        axs[1].set(xlabel="shift aplicado a los polos", ylabel="tiempo [ms] (log)",
+                   title="Inferencia: red vs CVXPY")
+        axs[1].legend()
+    fig.tight_layout(); return fig
