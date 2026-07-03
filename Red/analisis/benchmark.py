@@ -423,6 +423,75 @@ def normalize_system(A_poly, B_poly):
 _ARCH_NAME = {"LMINetVanilla": "vanilla", "LMINetVertices": "vertices", "LMINetActuators": "actuadores"}
 
 
+def check_stabilizable(model, A_poly, B_poly, normalize=True, verbose=True):
+    """¿Existe SIQUIERA un certificado (Q,Y) que cumpla la LMI de este politopo con
+    el alpha/epsilon del modelo? Lo resuelve CVXPY, independiente de la red: si es
+    infactible, NINGUNA cantidad de iteraciones de Douglas-Rachford (ni de
+    entrenamiento) lo va a estabilizar con ese alpha -- es una propiedad del
+    sistema (y del margen alpha pedido), no del solver. Pensado para llamar
+    ANTES de correr inferencia/benchmarks sobre un sistema nuevo.
+
+    Devuelve True/False/None (None si CVXPY no pudo determinarlo)."""
+    A = torch.as_tensor(A_poly).double(); B = torch.as_tensor(B_poly).double()
+    if normalize:
+        A, B = normalize_system(A, B)
+    feas, t_solve, _, _ = _cvxpy_solve(model, A, B)
+    if verbose:
+        if feas is None:
+            msg = "CVXPY no pudo resolverlo (revisa el sistema)"
+        elif feas:
+            msg = "SI existe certificado factible -> con iteraciones suficientes, la red DEBERIA estabilizarlo"
+        else:
+            msg = "NO existe certificado factible con este alpha -- INFACTIBLE: ninguna cantidad de iteraciones va a estabilizarlo"
+        t_msg = f"  ({t_solve*1000:.0f} ms CVXPY)" if t_solve is not None else ""
+        print(f"[chequeo previo] N={A.shape[0]} alpha={model.alpha} epsilon={model.epsilon}: {msg}{t_msg}")
+    return feas
+
+
+def iters_to_stabilize(model, A_poly, B_poly, budgets=(100, 250, 500, 1000, 2000, 4000, 8000),
+                       normalize=True):
+    """Para UN sistema (politopo): el MENOR nº de iteraciones DR (de los `budgets`
+    probados) con el que la proyeccion de la red ya deja el politopo estabilizado.
+    Reutiliza UNA sola pasada de Douglas-Rachford con checkpoints (barato: un
+    forward del encoder + un recorrido de DR), en vez de re-evaluar el modelo por
+    cada presupuesto.
+
+    Devuelve dict:
+      iters_min           : primer budget de `budgets` que estabiliza, o None si
+                            ninguno lo logra (puede ser infactible -- revisa con
+                            check_stabilizable -- o solo necesitar mas iteraciones
+                            de las probadas)
+      worst_eig_by_iters   : {budget: peor autovalor de lazo cerrado a esa iteracion}
+      estabilizado_en_max  : si estabiliza al mayor budget probado
+    """
+    from analisis.benchmark_dr_vs_cvxpy import dr_checkpoints  # import local: evita
+        # que analisis.benchmark cree resultados/proyeccion_dr_cvxpy solo por importarse
+    A = torch.as_tensor(A_poly).double(); B = torch.as_tensor(B_poly).double()
+    if normalize:
+        A, B = normalize_system(A, B)
+    Ab, Bb = A.unsqueeze(0), B.unsqueeze(0)
+    old_it, old_impl = model.dr_iters, model.use_implicit
+    model.use_implicit = False; model.eval()
+    budgets_sorted = sorted(budgets)
+    with torch.no_grad():
+        y_hat = model(Ab, Bb, return_unconstrained=True)
+        L, c, M_inv = model._dr_precompute(Ab, Bb)
+        ck = dr_checkpoints(model, y_hat, L, c, M_inv, budgets_sorted, model.sigma)
+        worst, iters_min = {}, None
+        for it in budgets_sorted:
+            y_it, _ = ck[it]
+            Q, Y = model._y_to_matrices(y_it)
+            K = Y[0] @ torch.linalg.inv(Q[0])
+            we = max(torch.linalg.eigvals(Ab[0, i] + Bb[0, i] @ K).real.max().item()
+                     for i in range(Ab.shape[1]))
+            worst[it] = we
+            if we < 0 and iters_min is None:
+                iters_min = it
+    model.dr_iters, model.use_implicit = old_it, old_impl
+    return dict(iters_min=iters_min, worst_eig_by_iters=worst,
+               estabilizado_en_max=worst[budgets_sorted[-1]] < 0)
+
+
 @torch.no_grad()
 def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
                       normalize=True, labels=None, compare_cvxpy=True, loss=None,
