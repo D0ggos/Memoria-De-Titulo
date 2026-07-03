@@ -25,7 +25,9 @@ import numpy as np, torch, pandas as pd
 import matplotlib.pyplot as plt
 import psutil
 
-from entrenamiento.training import load_vertices, split_items, make_batches, control_loss, paper_loss
+from entrenamiento.training import (load_vertices, split_items, make_batches, control_loss,
+                                    paper_loss, get_loss_fn, get_loss_direction,
+                                    register_loss, LOSS_REGISTRY)
 from red.vanilla import LMINetVanilla
 from red.vertices import LMINetVertices
 from red.actuators import LMINetActuators
@@ -84,13 +86,13 @@ class MemTracker:
 
 
 # ============================ train / eval ================================
-def _loss_for(model, arch):
-    """Pérdida por defecto según arquitectura: vanilla usa la del PAPER (Ec. 21,
-    receta fiel, enlazada a model.alpha/epsilon); el resto usa control_loss."""
-    if arch == "vanilla":
-        a, e = model.alpha, model.epsilon
-        return lambda Q, Y, A, B: paper_loss(Q, Y, A, B, alpha=a, epsilon=e)
-    return control_loss
+def _loss_for(model, arch, loss=None):
+    """Resuelve la pérdida a usar: si `loss` se especifica (nombre del registro
+    de training.LOSS_REGISTRY o un callable), esa gana. Si no, el default por
+    arquitectura: vanilla usa 'paper' (receta fiel del apéndice); el resto 'control'."""
+    if loss is not None:
+        return get_loss_fn(loss, model)
+    return get_loss_fn("paper" if arch == "vanilla" else "control", model)
 
 
 def _train_loop(model, buckets, epochs, batch, lr, seed, loss_fn=None, log_every=0, tag=""):
@@ -210,11 +212,17 @@ def _save_failures(fdf, fAB, outdir, summary=None):
 def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
                    dr_train=30, dr_eval=1000, epochs=15, batch=16, lr=1e-3,
                    alpha=0.01, limit=150, backprop="unrolling", implicit=None,
-                   loss_fn=None, seed=42, save_failures=False, log_every=0, verbose=True,
-                   compare_cvxpy=True, cvxpy_max_systems=20):
+                   loss=None, loss_fn=None, seed=42, save_failures=False, log_every=0,
+                   verbose=True, compare_cvxpy=True, cvxpy_max_systems=20):
     """Entrena UNA arquitectura y evalua. `m` puede ser un entero o una LISTA
     (p.ej. m=[1,2]): entonces el modelo se entrena sobre varios nº de actuadores a
     la vez (solo 'actuadores', que es invariante a n_u) y se evalua por (m, N).
+
+    `loss`: nombre de una pérdida registrada en entrenamiento.training.LOSS_REGISTRY
+    (hoy: 'control', 'paper'; añade la tuya con training.register_loss(nombre, factory)
+    sin tocar este archivo). Si no se especifica, usa el default por arquitectura
+    ('paper' para vanilla, 'control' para el resto). `loss_fn` (callable, legado)
+    tiene prioridad sobre `loss` si ambos se pasan.
 
     Si compare_cvxpy (default True), cada fila del df tambien trae `cvxpy_pct`:
     % de sistemas de test con LMI factible segun CVXPY (verdad de terreno), para
@@ -233,6 +241,9 @@ def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
     N_list = list(N_list)
     data = {(mm, N): split_items(load_vertices(n, mm, N, limit=limit), seed=seed)
             for mm in m_list for N in N_list}
+    loss_name = "custom" if loss_fn else (loss or ("paper" if arch == "vanilla" else "control"))
+    loss_direction = get_loss_direction(loss_name)
+    loss_vs_cvxpy_frames = []
 
     if arch == "vanilla":
         # vanilla NO es invariante a N ni a m: un modelo por N (m es unico).
@@ -240,27 +251,29 @@ def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
         models, df_rows, hist, t_train, mem = {}, [], [], 0.0, 0.0
         for N in N_list:
             mdl = build_model(arch, n, mm, N=N, dr_iters=dr_train, alpha=alpha, backprop=backprop)
+            loss_used = loss_fn or _loss_for(mdl, arch, loss)
             with MemTracker() as mt:
                 t0 = time.perf_counter()
                 hist = _train_loop(mdl, {(mm, N): data[(mm, N)][0]}, epochs, batch, lr, seed,
-                                   loss_fn=loss_fn or _loss_for(mdl, arch),
-                                   log_every=log_every, tag=f"[N={N}] ")
+                                   loss_fn=loss_used, log_every=log_every, tag=f"[N={N}] ")
                 t_train += time.perf_counter() - t0
             mem = max(mem, mt.delta_mb)
             row = dict(m=mm, N=N, **_eval_stab(mdl, data[(mm, N)][1], dr_eval, alpha, batch))
             if compare_cvxpy:
-                row["cvxpy_pct"], row["cvxpy_ms_per_sys"] = _cvxpy_stats(
-                    mdl, data[(mm, N)][1], cvxpy_max_systems)
+                (row["cvxpy_pct"], row["cvxpy_ms_per_sys"]), per_sys = _cvxpy_loss_stats(
+                    mdl, data[(mm, N)][1], loss_used, N, mm, cvxpy_max_systems)
+                loss_vs_cvxpy_frames.append(per_sys)
             df_rows.append(row)
             models[N] = mdl
         model = models
         df = pd.DataFrame(df_rows)
     else:
         model = build_model(arch, n, m_list[0], dr_iters=dr_train, alpha=alpha, backprop=backprop)
+        loss_used = loss_fn or _loss_for(model, arch, loss)
         with MemTracker() as mt:
             t0 = time.perf_counter()
             hist = _train_loop(model, {k: data[k][0] for k in data}, epochs, batch, lr, seed,
-                               loss_fn=loss_fn or _loss_for(model, arch), log_every=log_every)
+                               loss_fn=loss_used, log_every=log_every)
             t_train = time.perf_counter() - t0
         mem = mt.delta_mb
         rows = []
@@ -268,10 +281,19 @@ def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
             for N in N_list:
                 row = dict(m=mm, N=N, **_eval_stab(model, data[(mm, N)][1], dr_eval, alpha, batch))
                 if compare_cvxpy:
-                    row["cvxpy_pct"], row["cvxpy_ms_per_sys"] = _cvxpy_stats(
-                        model, data[(mm, N)][1], cvxpy_max_systems)
+                    (row["cvxpy_pct"], row["cvxpy_ms_per_sys"]), per_sys = _cvxpy_loss_stats(
+                        model, data[(mm, N)][1], loss_used, N, mm, cvxpy_max_systems)
+                    loss_vs_cvxpy_frames.append(per_sys)
                 rows.append(row)
         df = pd.DataFrame(rows)
+
+    loss_vs_cvxpy = pd.concat(loss_vs_cvxpy_frames, ignore_index=True) if loss_vs_cvxpy_frames else None
+    pct_red_mejor = None
+    if loss_vs_cvxpy is not None and len(loss_vs_cvxpy):
+        loss_vs_cvxpy["red_mejor"] = (loss_vs_cvxpy.loss_red < loss_vs_cvxpy.loss_cvxpy
+                                      if loss_direction == "min" else
+                                      loss_vs_cvxpy.loss_red > loss_vs_cvxpy.loss_cvxpy)
+        pct_red_mejor = float(loss_vs_cvxpy.red_mejor.mean() * 100)
 
     res = dict(arch=arch, n=n, m=m, m_list=m_list, N_list=N_list, model=model, df=df,
                loss_hist=hist, t_train_s=t_train, mem_train_mb=mem,
@@ -279,14 +301,18 @@ def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
                infer_ms_per_sys=float(df.infer_ms_per_sys.mean()),
                cvxpy_pct=(float(df.cvxpy_pct.mean()) if "cvxpy_pct" in df else None),
                cvxpy_ms_per_sys=(float(df.cvxpy_ms_per_sys.mean()) if "cvxpy_ms_per_sys" in df else None),
+               loss_vs_cvxpy=loss_vs_cvxpy, pct_red_mejor_loss=pct_red_mejor,
                config=dict(dr_train=dr_train, dr_eval=dr_eval, epochs=epochs, batch=batch,
                            lr=lr, alpha=alpha, limit=limit, backprop=backprop, seed=seed,
-                           loss=("custom" if loss_fn else ("paper" if arch == "vanilla" else "control"))))
+                           loss=loss_name, loss_direction=loss_direction))
     if verbose:
         cvxpy_msg = (f"  cvxpy_factible={res['cvxpy_pct']:.1f}%  "
                      f"cvxpy_infer={res['cvxpy_ms_per_sys']:.1f}ms/sys"
                      if res["cvxpy_pct"] is not None else "")
-        print(f"[{arch}/{backprop}] n={n} m={m_list}  estabiliza={res['stable_pct']:.1f}%{cvxpy_msg}  "
+        mejor_msg = (f"  red_mejor_que_cvxpy({loss_direction} {loss_name})={pct_red_mejor:.1f}%"
+                     if pct_red_mejor is not None else "")
+        print(f"[{arch}/{backprop}] n={n} m={m_list}  estabiliza={res['stable_pct']:.1f}%{cvxpy_msg}"
+              f"{mejor_msg}  "
               f"train={t_train:.1f}s  mem_pico=+{mem:.0f}MB  "
               f"inferencia={res['infer_ms_per_sys']:.2f}ms/sys  loss_final={hist[-1]:.4f}")
 
@@ -298,6 +324,66 @@ def run_experiment(arch="actuadores", n=3, N_list=(2, 3, 4, 5), m=1, *,
         if verbose:
             print(f"  -> {len(fdf)} sistemas NO estabilizados guardados en {outdir}")
     return res
+
+
+# ============================ grid search ==================================
+def grid_search(param_grid, verbose=False, **common):
+    """Barre TODAS las combinaciones de `param_grid` (dict {parametro: [valores]},
+    p.ej. {"loss": ["control","paper"], "backprop": ["unrolling","implicit"]}) sobre
+    run_experiment, con `common` como el resto de kwargs fijos (arch, n, N_list, m,
+    epochs, limit, ...). Cualquier parametro de run_experiment es barrible, incluida
+    'loss' (nombres del registro en entrenamiento.training.LOSS_REGISTRY).
+
+    Devuelve (tabla, resultados):
+      - tabla: un DataFrame con una fila por combinacion + metricas resumen
+        (stable_pct, t_train_s, mem_train_mb, infer_ms_per_sys, loss_final, cvxpy_pct,
+        y si compare_cvxpy: pct_red_mejor_loss — % de sistemas donde la red logra
+        mejor valor de `loss` que el certificado FACTIBLE de CVXPY, ver
+        plot_loss_vs_cvxpy).
+      - resultados: lista de dicts run_experiment completos, mismo orden que `tabla`.
+    """
+    import itertools
+    keys = list(param_grid.keys())
+    combos = list(itertools.product(*param_grid.values()))
+    rows, results = [], []
+    for i, combo in enumerate(combos):
+        kwargs = dict(zip(keys, combo))
+        tag = ", ".join(f"{k}={v}" for k, v in kwargs.items())
+        print(f"\n=== grid {i + 1}/{len(combos)}: {tag} ===")
+        r = run_experiment(**{**common, **kwargs}, verbose=verbose)
+        row = {**kwargs, "stable_pct": r["stable_pct"], "t_train_s": r["t_train_s"],
+              "mem_train_mb": r["mem_train_mb"], "infer_ms_per_sys": r["infer_ms_per_sys"],
+              "loss_final": r["loss_hist"][-1], "loss_usada": r["config"]["loss"]}
+        if r["cvxpy_pct"] is not None:
+            row["cvxpy_pct"] = r["cvxpy_pct"]
+        if r["pct_red_mejor_loss"] is not None:
+            row["pct_red_mejor_loss"] = r["pct_red_mejor_loss"]
+        print(f"  -> estabiliza={r['stable_pct']:.1f}%  train={r['t_train_s']:.1f}s  "
+              f"loss_final={row['loss_final']:.4f}")
+        rows.append(row); results.append(r)
+    return pd.DataFrame(rows), results
+
+
+def plot_grid_search(tabla, x, y="stable_pct", hue=None, title=None):
+    """Barras de la métrica `y` vs el parámetro `x` del grid (de grid_search),
+    agrupadas por `hue` si se especifica (p.ej. x='loss', hue='backprop')."""
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    if hue and hue in tabla.columns:
+        hues = sorted(tabla[hue].astype(str).unique())
+        xs = sorted(tabla[x].astype(str).unique())
+        xpos = np.arange(len(xs)); w = 0.8 / len(hues)
+        t = tabla.copy(); t[x] = t[x].astype(str); t[hue] = t[hue].astype(str)
+        for i, hv in enumerate(hues):
+            sub = t[t[hue] == hv].set_index(x).reindex(xs)
+            b = ax.bar(xpos + (i - (len(hues) - 1) / 2) * w, sub[y], w, label=f"{hue}={hv}", alpha=.85)
+            ax.bar_label(b, fmt="%.1f", fontsize=7)
+        ax.set_xticks(xpos); ax.set_xticklabels(xs); ax.legend(fontsize=8)
+    else:
+        xs = tabla[x].astype(str)
+        b = ax.bar(xs, tabla[y], alpha=.85)
+        ax.bar_label(b, fmt="%.1f", fontsize=8)
+    ax.set(xlabel=x, ylabel=y, title=title or f"Grid search: {y} vs {x}")
+    fig.tight_layout(); return fig
 
 
 # ==================== sistemas a mano (para el profesor) =================
@@ -339,7 +425,8 @@ _ARCH_NAME = {"LMINetVanilla": "vanilla", "LMINetVertices": "vertices", "LMINetA
 
 @torch.no_grad()
 def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
-                      normalize=True, labels=None, compare_cvxpy=True, save_failures=False):
+                      normalize=True, labels=None, compare_cvxpy=True, loss=None,
+                      save_failures=False):
     """Evalua el modelo sobre TUS sistemas. `systems` = lista de politopos
     (A_poly, B_poly) construidos con system_to_polytope / polytope_from_vertices.
 
@@ -348,12 +435,22 @@ def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
     tambien si la LMI es factible por CVXPY (verdad de terreno: existe certificado
     con margen alpha, columna `lmi_factible_cvxpy`) y su tiempo de solve
     (`cvxpy_ms`) — para comparar directamente contra `infer_ms`.
+
+    Si ademas se pasa `loss` (nombre registrado en training.LOSS_REGISTRY, p.ej.
+    "control"/"paper", o un callable), se añaden `loss_red`/`loss_cvxpy`: el valor
+    de esa pérdida evaluado en el (Q,Y) de la red y en el de CVXPY. Importante:
+    CVXPY solo resuelve FACTIBILIDAD (el certificado mas cercano a y=0), no
+    optimiza ningun criterio de desempeño -- por eso puede no minimizar/maximizar
+    `loss` aunque sea una solucion valida; esta comparacion muestra si la red
+    encuentra soluciones mejores (ver plot_loss_vs_cvxpy).
+
     Si save_failures, guarda los NO estabilizados en el directorio de la combinacion
     resultados/benchmark/<arch>/<backprop>/manual/.
     """
     if isinstance(model, dict):
         raise ValueError("benchmark_systems necesita un modelo invariante "
                          "(vertices/actuadores), no el dict per-N de vanilla.")
+    loss_fn = get_loss_fn(loss, model) if loss is not None else None
     old_it, old_impl = model.dr_iters, model.use_implicit
     model.dr_iters = dr_eval; model.use_implicit = False; model.eval()
     rows, fail_AB = [], []
@@ -369,9 +466,12 @@ def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
                    m=B.shape[-1], estabilizado=bool(we < 0), peor_autovalor_cl=we,
                    decay_logrado=-we, infer_ms=dt * 1000)
         if compare_cvxpy:
-            feas, t_cvx = _cvxpy_solve(model, A, B)
+            feas, t_cvx, Qc, Yc = _cvxpy_solve(model, A, B)
             row["lmi_factible_cvxpy"] = feas
             row["cvxpy_ms"] = t_cvx * 1000 if t_cvx is not None else float("nan")
+            if loss_fn is not None and feas:
+                row["loss_red"] = float(loss_fn(Q, Y, Ab, Bb))
+                row["loss_cvxpy"] = float(loss_fn(Qc, Yc, Ab, Bb))
         rows.append(row)
         if we >= 0:
             fail_AB.append((A.numpy(), B.numpy()))
@@ -390,37 +490,60 @@ def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
 
 
 def _cvxpy_solve(model, A, B):
-    """Resuelve la proyeccion LMI por CVXPY para UN sistema (verdad de terreno,
-    y tiempo de referencia para comparar contra la inferencia de la red).
+    """Resuelve la proyeccion LMI por CVXPY para UN sistema: busca el certificado
+    (Q,Y) FACTIBLE mas cercano a y=0 (verdad de terreno de factibilidad, NO
+    optimiza ningun criterio de desempeño -- por eso se compara aparte contra la
+    perdida de la red, ver _cvxpy_loss_stats).
     A: (N,n,n), B: (N,n,m) de UN sistema (sin dim de batch).
-    Devuelve (factible: bool|None, t_solve_s: float|None)."""
+    Devuelve (factible: bool|None, t_solve_s: float|None, Q: (1,n,n)|None, Y: (1,m,n)|None)."""
     from analisis.validate_projection import cvxpy_projection
     old_N = model.N
     model.N = A.shape[0]           # cvxpy_projection lee model.N; debe ser el N real del sistema
     try:
         y0 = np.zeros(model.dim_y)
         y_star, t_solve = cvxpy_projection(model, y0, A.numpy(), B.numpy())
-        return y_star is not None, t_solve
+        y_t = torch.from_numpy(y_star).to(A.dtype).unsqueeze(0)
+        Q, Y = model._y_to_matrices(y_t)
+        return True, t_solve, Q, Y
     except Exception:
-        return None, None
+        return None, None, None, None
     finally:
         model.N = old_N
 
 
-def _cvxpy_stats(model, items, max_systems=20):
+def _cvxpy_loss_stats(model, items, loss_fn, N, m, max_systems=20):
     """% factible y tiempo medio de solve (ms/sistema) segun CVXPY (verdad de
     terreno + costo de referencia), sobre a lo sumo `max_systems` de `items`
     (una SDP por sistema es lento; con esto el costo queda acotado aunque
     `limit`/N_list crezcan).
     # ponytail: muestra los primeros max_systems en vez de todos; sube max_systems
-    # si necesitas el % / tiempo exacto sobre el set de test completo."""
+    # si necesitas el % / tiempo exacto sobre el set de test completo.
+
+    ADEMAS compara, sistema por sistema, `loss_fn` evaluada en el (Q,Y) de la RED
+    contra la evaluada en el (Q,Y) de CVXPY. CVXPY solo busca un certificado
+    FACTIBLE (el mas cercano a y=0), no optimiza `loss_fn` -- por eso puede no ser
+    el mejor segun el criterio que de verdad importa (p.ej. volumen del elipsoide),
+    aunque sea una solucion valida. Esta comparacion muestra si la red encuentra
+    soluciones mejores que "una cualquiera factible".
+
+    Devuelve ((pct_factible, ms_per_sys), per_sys: DataFrame con columnas
+    N, m, loss_red, loss_cvxpy)."""
     sample = items[:max_systems]
-    results = [_cvxpy_solve(model, A, B) for A, B in sample]
-    feas = [f for f, _ in results if f is not None]
-    times = [t for _, t in results if t is not None]
-    pct = 100 * np.mean(feas) if feas else float("nan")
+    feas_list, times, rows = [], [], []
+    for A, B in sample:
+        feas, t_solve, Qc, Yc = _cvxpy_solve(model, A, B)
+        if feas is None:
+            continue
+        feas_list.append(1); times.append(t_solve)
+        Ab, Bb = A.unsqueeze(0), B.unsqueeze(0)
+        with torch.no_grad():
+            Qr, Yr = _forward(model, Ab, Bb)
+        loss_red = float(loss_fn(Qr, Yr, Ab, Bb))
+        loss_cvxpy = float(loss_fn(Qc, Yc, Ab, Bb))
+        rows.append(dict(N=N, m=m, loss_red=loss_red, loss_cvxpy=loss_cvxpy))
+    pct = 100 * len(feas_list) / len(sample) if sample else float("nan")
     ms_per_sys = 1000 * np.mean(times) if times else float("nan")
-    return pct, ms_per_sys
+    return (pct, ms_per_sys), pd.DataFrame(rows)
 
 
 # ============================ figuras ====================================
@@ -547,4 +670,53 @@ def plot_pole_shift(df, x="shift"):
         axs[1].set(xlabel="shift aplicado a los polos", ylabel="tiempo [ms] (log)",
                    title="Inferencia: red vs CVXPY")
         axs[1].legend()
+    fig.tight_layout(); return fig
+
+
+def plot_loss_vs_cvxpy(res, title=None):
+    """Compara, SISTEMA POR SISTEMA, el valor de la pérdida de entrenamiento
+    logrado por la red frente al logrado por el certificado (Q,Y) de CVXPY.
+
+    Por qué esta comparación importa: CVXPY (en _cvxpy_solve) solo resuelve un
+    problema de FACTIBILIDAD -- el certificado más cercano a y=0 que cumple la
+    LMI -- no optimiza ningún criterio de desempeño. Es "verdad de terreno" de
+    que existe solución, pero no de que sea buena. La red, en cambio, SÍ está
+    entrenada para minimizar/maximizar `loss`. Este gráfico muestra si la red
+    encuentra soluciones mejores que "una cualquiera factible" bajo ese criterio
+    (p.ej. menor volumen del elipsoide invariante).
+
+    Requiere haber corrido run_experiment con compare_cvxpy=True (default).
+    Panel izquierdo: scatter loss_red vs loss_cvxpy con la diagonal y=x (empate).
+    Panel derecho: histograma de la mejora (+ = la red es mejor), según la
+    DIRECCIÓN de la pérdida (min/max, ver training.LOSS_REGISTRY).
+    """
+    df = res.get("loss_vs_cvxpy")
+    if df is None or len(df) == 0:
+        raise ValueError("No hay datos loss_vs_cvxpy: corre run_experiment con "
+                         "compare_cvxpy=True (default) y al menos 1 sistema factible.")
+    direction = res["config"]["loss_direction"]
+    loss_name = res["config"]["loss"]
+    pct = res["pct_red_mejor_loss"]
+
+    fig, axs = plt.subplots(1, 2, figsize=(9.5, 3.6))
+
+    lo = min(df.loss_red.min(), df.loss_cvxpy.min())
+    hi = max(df.loss_red.max(), df.loss_cvxpy.max())
+    pad = 0.05 * (hi - lo) if hi > lo else 1.0
+    axs[0].plot([lo - pad, hi + pad], [lo - pad, hi + pad], "k--", lw=1, alpha=.5, label="y = x (empate)")
+    colors = np.where(df.red_mejor, "#1e8449", "#a93226")
+    axs[0].scatter(df.loss_cvxpy, df.loss_red, c=colors, alpha=.7, s=24)
+    lado = "mas ABAJO" if direction == "min" else "mas ARRIBA"
+    axs[0].set(xlabel="pérdida con (Q,Y) de CVXPY", ylabel="pérdida con (Q,Y) de la red",
+              title=f"Por sistema (red mejor = {lado} de la diagonal)")
+    axs[0].legend(fontsize=8)
+
+    delta = (df.loss_cvxpy - df.loss_red) if direction == "min" else (df.loss_red - df.loss_cvxpy)
+    axs[1].hist(delta, bins=min(20, max(5, len(delta) // 2)), color="#2471a3", alpha=.85)
+    axs[1].axvline(0, color="k", ls="--", lw=1)
+    axs[1].set(xlabel="mejora de la red sobre CVXPY  (+ = red mejor)",
+              ylabel="nº de sistemas", title=f"{pct:.1f}% de sistemas: la red es mejor")
+
+    fig.suptitle(title or f"Pérdida ({loss_name}, {direction}) — red vs CVXPY  "
+                          f"[{res['arch']}/{res['config']['backprop']}]", y=1.03)
     fig.tight_layout(); return fig

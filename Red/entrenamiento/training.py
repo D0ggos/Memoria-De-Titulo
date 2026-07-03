@@ -86,6 +86,57 @@ def control_loss(Q, Y, A_poly=None, B_poly=None):
     return vol + 0.1 * eff
 
 
+# --------------------- Registro de pérdidas por nombre ----------------------
+# Permite elegir la pérdida por STRING (p.ej. desde CONFIG del notebook o un
+# grid search) sin tocar el código de entrenamiento. Cada entrada tiene:
+#   - "factory":   recibe el modelo (para leer alpha/epsilon si hace falta) y
+#                  devuelve el loss_fn(Q, Y, A_poly, B_poly) que espera train().
+#   - "direction": "min" si esa pérdida se quiere MINIMIZAR (por defecto) o "max"
+#                  si se quiere MAXIMIZAR (p.ej. una tasa de decaimiento/margen).
+#                  Importa para comparar contra CVXPY: CVXPY solo garantiza
+#                  factibilidad, no optimiza ningún criterio, así que hace falta
+#                  saber hacia dónde es "mejor" para decidir quién gana.
+#
+# Para añadir una pérdida nueva sin editar este archivo:
+#   from entrenamiento.training import register_loss
+#   register_loss("mi_loss", lambda model: mi_funcion_de_perdida, direction="min")
+LOSS_REGISTRY = {
+    "control": {"factory": lambda model: control_loss, "direction": "min"},
+    "paper": {"factory": lambda model: (lambda Q, Y, A, B:
+                        paper_loss(Q, Y, A, B, alpha=model.alpha, epsilon=model.epsilon)),
+              "direction": "min"},
+}
+
+
+def register_loss(name, factory, direction="min"):
+    """Registra una pérdida nueva bajo `name`. `factory(model) -> loss_fn(Q,Y,A,B)`.
+    `direction`: "min" (minimizar, por defecto) o "max" (maximizar)."""
+    if direction not in ("min", "max"):
+        raise ValueError("direction debe ser 'min' o 'max'")
+    LOSS_REGISTRY[name] = {"factory": factory, "direction": direction}
+
+
+def get_loss_fn(name, model):
+    """Resuelve una pérdida registrada para `model`. `name` puede ser un string
+    del registro o ya un callable(Q,Y,A,B) (se devuelve tal cual)."""
+    if callable(name):
+        return name
+    if name not in LOSS_REGISTRY:
+        raise ValueError(f"pérdida '{name}' no registrada. Disponibles: "
+                         f"{list(LOSS_REGISTRY)}. Registra la tuya con "
+                         f"training.register_loss(nombre, factory, direction).")
+    return LOSS_REGISTRY[name]["factory"](model)
+
+
+def get_loss_direction(name, default="min"):
+    """'min' o 'max': si la pérdida `name` se quiere minimizar o maximizar. Para
+    un callable directo (no registrado), devuelve `default` (no hay forma de
+    inferirla; pásala tú si tu loss_fn maximiza)."""
+    if isinstance(name, str) and name in LOSS_REGISTRY:
+        return LOSS_REGISTRY[name]["direction"]
+    return default
+
+
 # --------------------------- Entrenamiento ---------------------------------
 def train(model, train_items_by_N, epochs=20, lr=1e-3, batch=16,
           seed=42, device="cpu", log_every=5, loss_fn=None):
