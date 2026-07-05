@@ -86,6 +86,32 @@ def control_loss(Q, Y, A_poly=None, B_poly=None):
     return vol + 0.1 * eff
 
 
+def control_margen_loss(Q, Y, A_poly=None, B_poly=None, eta=1.0, piso=0.05):
+    """control_loss + regularización del ŷ del encoder vía un PISO en λ_min(Q).
+
+    PARA QUÉ SIRVE: 'control' y 'paper' premian Q pequeña (traza / logdet), así
+    que el entrenamiento empuja al encoder hacia la frontera del conjunto
+    factible, donde Q es casi singular. En distribución funciona; con sistemas
+    fuera de distribución (politopos a mano, barridos de pole-shift) la
+    proyección de ŷ aterriza en esa esquina mal condicionada: K = Y·Q⁻¹ explota,
+    y el DR necesita miles de iteraciones o se estanca — aun cuando el DR puro
+    desde ŷ ALEATORIO estabiliza esos mismos sistemas en ≤500 iteraciones (el
+    solver no es el problema; la dirección de ŷ, sí).
+
+    CÓMO: el término eta·relu(piso − λ_min(Q)) castiga certificados con Q casi
+    singular y no toca a los que ya tienen margen (λ_min ≥ piso cuesta 0),
+    manteniendo la ganancia K acotada.
+
+    POR QUÉ LA PROBAMOS: hipótesis — entrenar con esto baja el iters_min y
+    elimina el estancamiento en los barridos OOD (celda 4c del notebook) sin
+    sacrificar % estabilizado en distribución. Comparar con grid_search
+    {"loss": ["control", "control_margen"]}.
+    """
+    lam_min = torch.linalg.eigvalsh(Q)[..., 0]                     # (B,)
+    margen = torch.relu(piso - lam_min).mean()
+    return control_loss(Q, Y) + eta * margen
+
+
 # --------------------- Registro de pérdidas por nombre ----------------------
 # Permite elegir la pérdida por STRING (p.ej. desde CONFIG del notebook o un
 # grid search) sin tocar el código de entrenamiento. Cada entrada tiene:
@@ -102,6 +128,7 @@ def control_loss(Q, Y, A_poly=None, B_poly=None):
 #   register_loss("mi_loss", lambda model: mi_funcion_de_perdida, direction="min")
 LOSS_REGISTRY = {
     "control": {"factory": lambda model: control_loss, "direction": "min"},
+    "control_margen": {"factory": lambda model: control_margen_loss, "direction": "min"},
     "paper": {"factory": lambda model: (lambda Q, Y, A, B:
                         paper_loss(Q, Y, A, B, alpha=model.alpha, epsilon=model.epsilon)),
               "direction": "min"},

@@ -399,18 +399,48 @@ def system_to_polytope(A, B):
 
 def polytope_from_vertices(A_list, B_list):
     """Un POLITOPO por sus vertices. A_list=[A_1,...,A_N], B_list=[B_1,...,B_N].
-    Devuelve A_poly (N,n,n), B_poly (N,n,m)."""
+    Si B es GENERICA (igual en todos los vertices) puedes pasar B_list=[B] con un
+    solo elemento: se replica a los N vertices. Devuelve A_poly (N,n,n), B_poly (N,n,m)."""
     A = torch.stack([torch.as_tensor(np.atleast_2d(np.asarray(a, float))) for a in A_list]).double()
+    if len(B_list) == 1 and len(A_list) > 1:
+        B_list = list(B_list) * len(A_list)        # B generica: misma en cada vertice
+    if len(B_list) != len(A_list):
+        raise ValueError(f"{len(A_list)} vertices A pero {len(B_list)} matrices B: "
+                         "pasa una B por vertice, o UNA sola (generica) para replicar")
     B = torch.stack([torch.as_tensor(np.asarray(b, float)).reshape(A.shape[1], -1) for b in B_list]).double()
     return A, B
 
 
-def shift_poles(A_poly, shift):
-    """Desplaza TODOS los polos (parte real de los autovalores de A) sumando
-    `shift`·I a cada vertice:  A -> A + shift·I.  shift>0 hace el sistema mas
-    inestable; shift<0 lo hace mas estable. Util para barrer la 'dificultad'."""
+def _check_order(model, A_poly):
+    """Error claro si el orden del sistema no coincide con el del modelo (una
+    arquitectura cubre UN orden n_x; N y n_u si son invariantes, n no)."""
+    n_sys = A_poly.shape[-1]
+    if n_sys != model.n:
+        raise ValueError(
+            f"El sistema es de orden n_x={n_sys} pero el modelo es de orden n={model.n}. "
+            f"Las arquitecturas son invariantes a N (y 'actuadores' a n_u) pero NO al orden: "
+            f"entrena un modelo del orden correcto, p.ej. bm.run_experiment(n={n_sys}, ...)")
+
+
+def shift_poles(A_poly, shift, directions=None):
+    """Perturba los vertices:  A_i -> A_i + shift·D_i.
+
+    directions=None  -> D_i = I: desplaza TODOS los polos en `shift` exacto
+                        (lambda(A+sI) = lambda(A)+s). shift>0 = mas inestable.
+    directions=D     -> una matriz (n,n) usada en todos los vertices.
+    directions=[D_1,..,D_N] -> una matriz POR VERTICE (p.ej. diagonales distintas,
+                        como el barrido A_i(delta) = A_i0 + delta·D_i del profesor).
+                        Con D != I el desplazamiento de cada polo ya no es uniforme."""
+    A_poly = torch.as_tensor(A_poly).double()
     n = A_poly.shape[-1]
-    return A_poly + shift * torch.eye(n, dtype=A_poly.dtype)
+    if directions is None:
+        D = torch.eye(n, dtype=A_poly.dtype)
+    else:
+        D = torch.as_tensor(np.asarray(directions, float)).double()
+        if D.dim() == 3 and D.shape[0] != A_poly.shape[0]:
+            raise ValueError(f"directions tiene {D.shape[0]} matrices pero el politopo "
+                             f"tiene {A_poly.shape[0]} vertices")
+    return A_poly + shift * D
 
 
 def normalize_system(A_poly, B_poly):
@@ -433,6 +463,7 @@ def check_stabilizable(model, A_poly, B_poly, normalize=True, verbose=True):
 
     Devuelve True/False/None (None si CVXPY no pudo determinarlo)."""
     A = torch.as_tensor(A_poly).double(); B = torch.as_tensor(B_poly).double()
+    _check_order(model, A)
     if normalize:
         A, B = normalize_system(A, B)
     feas, t_solve, _, _ = _cvxpy_solve(model, A, B)
@@ -467,6 +498,7 @@ def iters_to_stabilize(model, A_poly, B_poly, budgets=(100, 250, 500, 1000, 2000
     from analisis.benchmark_dr_vs_cvxpy import dr_checkpoints  # import local: evita
         # que analisis.benchmark cree resultados/proyeccion_dr_cvxpy solo por importarse
     A = torch.as_tensor(A_poly).double(); B = torch.as_tensor(B_poly).double()
+    _check_order(model, A)
     if normalize:
         A, B = normalize_system(A, B)
     Ab, Bb = A.unsqueeze(0), B.unsqueeze(0)
@@ -525,6 +557,7 @@ def benchmark_systems(model, systems, dr_eval=1000, alpha=0.01,
     rows, fail_AB = [], []
     for idx, (A, B) in enumerate(systems):
         A = torch.as_tensor(A).double(); B = torch.as_tensor(B).double()
+        _check_order(model, A)
         if normalize:
             A, B = normalize_system(A, B)
         Ab, Bb = A.unsqueeze(0), B.unsqueeze(0)                 # batch 1
