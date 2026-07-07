@@ -11,8 +11,14 @@ en archivos separados:
 Aqui vive:
   - construccion de la LMI robusta            (_compute_F, _construct_L_c)
   - decodificacion  y -> (Q, Y)               (_y_to_matrices, _vec_to_Q)
-  - el forward de Douglas-Rachford COMPARTIDO  (_dr_precompute, _dr_iterate,
-    _dr_final_proj, _dr_step_single)  <- lo mismo para unrolling e implicita
+  - el forward de Douglas-Rachford COMPARTIDO  (_dr_precompute, _dr_step_batch,
+    _dr_iterate, _dr_final_proj, _dr_state_step, _dr_step_single)
+    <- lo mismo para unrolling e implicita
+  - la SALIDA UNIFICADA de ambos solvers: los dos aterrizan con la proyeccion final
+    Pi_{C1} (_dr_final_proj) antes de decodificar (Q, Y). El paper define
+    y* = Pi_{C1}(z_niter); C1 es la restriccion afin que codifica la dinamica de la
+    planta, asi que proyectar ahi garantiza que (Q,Y) respeta esa estructura exacta.
+    Unificar aisla el gradiente como UNICA variable entre unrolling e implicita.
   - la seleccion de la estrategia de backprop  (self.solver)
 
 Se puede instanciar directamente como "solver sin encoder" (lo usan
@@ -65,8 +71,18 @@ class LMICore(nn.Module):
         self.triu_indices = torch.triu_indices(row=n, col=n, offset=0)
 
         # Config de la estrategia implicita (la lee ImplicitSolver)
+        #   forward  : corre DR hasta el punto fijo (o max_iters) con early-stop en tol.
         self.implicit_max_iters = 4000
         self.implicit_tol = 1e-9
+        #   backward : el adjunto de la IFT se resuelve MATRIX-FREE (solo VJPs), por
+        #   iteracion de punto fijo estilo DEQ  w <- (J_s^T w + rhs)/(1+ridge).  El ridge
+        #   regulariza la no-unicidad del punto fijo del DR (sesgo despreciable, estandar
+        #   en DEQ). implicit_diag_monitor loguea el gap espectral minimo del bloque eigh
+        #   (diagnostico del gradiente espectral mal condicionado; NO aborta).
+        self.implicit_adjoint_iters = 1000
+        self.implicit_adjoint_tol = 1e-10
+        self.implicit_ridge = 1e-6
+        self.implicit_diag_monitor = False
         self._set_solver(backprop)
 
     # ------------------- seleccion de backpropagation -----------------
@@ -145,32 +161,50 @@ class LMICore(nn.Module):
         M_inv = torch.linalg.inv(I_y + torch.bmm(L.transpose(1, 2), L))
         return L, c, M_inv
 
+    def _dr_step_batch(self, y_k, x_k, y_hat, L, c, M_inv):
+        """UNA iteracion de Douglas-Rachford (batcheada) sobre el estado (y_k, x_k) ->
+        (y_next, x_next). Es EXACTAMENTE el cuerpo del bucle de _dr_iterate, factorizado
+        para reutilizarlo (a) en _dr_iterate y (b) como la funcion de punto fijo
+        T(s, y_hat) cuyo VJP usa la diferenciacion implicita matrix-free. NO altera la
+        matematica del solver: mismos calculos, mismo orden que la version original."""
+        B_sz = y_hat.shape[0]; block = self.n * self.n; nb = self.N + 1
+        Lt = L.transpose(1, 2); s2 = 2 * self.sigma
+        y_avg = (s2 * y_hat + y_k) / (s2 + 1.0)
+        term2 = torch.bmm(Lt, (c - x_k).unsqueeze(-1)).squeeze(-1)
+        y_w = torch.bmm(M_inv, (y_avg - term2).unsqueeze(-1)).squeeze(-1)
+        x_w = torch.bmm(L, y_w.unsqueeze(-1)).squeeze(-1) + c
+        xin = 2 * x_w - x_k
+        xv = []
+        for b in range(nb):
+            X = xin[:, b * block:(b + 1) * block].view(B_sz, self.n, self.n)
+            X = 0.5 * (X + X.transpose(1, 2))
+            lam, V = torch.linalg.eigh(X); lam = torch.relu(lam)
+            xv.append(torch.bmm(V, torch.bmm(torch.diag_embed(lam), V.transpose(1, 2))).reshape(B_sz, -1))
+        x_v = torch.cat(xv, dim=1)
+        x_next = x_k + (x_v - x_w)            # incr = x_v - x_w (=0 solo en el punto fijo)
+        return y_w, x_next
+
+    def _dr_state_step(self, s, y_hat, L, c, M_inv):
+        """Funcion de punto fijo T(s, y_hat) en forma de estado apilado s = [y_k | x_k]
+        -> [y_next | x_next]. Version (B, d) de _dr_step_single. La usa el backward
+        implicito matrix-free para pedir a torch.func.vjp los productos J_s^T v y J_y^T v
+        SIN materializar Jacobianas."""
+        y_k = s[:, :self.dim_y]; x_k = s[:, self.dim_y:]
+        y_next, x_next = self._dr_step_batch(y_k, x_k, y_hat, L, c, M_inv)
+        return torch.cat([y_next, x_next], dim=1)
+
     def _dr_iterate(self, y_hat, L, c, M_inv, iters, tol=0.0):
         """Itera Douglas-Rachford (batcheado) y devuelve el estado final (y_k, x_k).
         Es EL MISMO forward para unrolling e implicita; la diferencia (guardar grafo
         o no) la decide quien lo llama. En el punto fijo, y_k = proyeccion Pi_C(y_hat).
         Si tol>0, para temprano cuando el residual de DR cae bajo tol."""
-        B_sz = y_hat.shape[0]; block = self.n * self.n; nb = self.N + 1
-        Lt = L.transpose(1, 2); s2 = 2 * self.sigma
         y_k = y_hat.clone()
         x_k = torch.bmm(L, y_k.unsqueeze(-1)).squeeze(-1) + c          # = vec(F(y_hat))
         for it in range(iters):
-            y_avg = (s2 * y_hat + y_k) / (s2 + 1.0)
-            term2 = torch.bmm(Lt, (c - x_k).unsqueeze(-1)).squeeze(-1)
-            y_w = torch.bmm(M_inv, (y_avg - term2).unsqueeze(-1)).squeeze(-1)
-            x_w = torch.bmm(L, y_w.unsqueeze(-1)).squeeze(-1) + c
-            xin = 2 * x_w - x_k
-            xv = []
-            for b in range(nb):
-                X = xin[:, b * block:(b + 1) * block].view(B_sz, self.n, self.n)
-                X = 0.5 * (X + X.transpose(1, 2))
-                lam, V = torch.linalg.eigh(X); lam = torch.relu(lam)
-                xv.append(torch.bmm(V, torch.bmm(torch.diag_embed(lam), V.transpose(1, 2))).reshape(B_sz, -1))
-            x_v = torch.cat(xv, dim=1)
-            incr = x_v - x_w                     # residual de DR (=0 solo en el punto fijo)
-            y_k = y_w
-            x_k = x_k + incr
-            if tol and it % 25 == 0 and it > 0 and incr.abs().max() < tol:
+            y_next, x_next = self._dr_step_batch(y_k, x_k, y_hat, L, c, M_inv)
+            incr_max = (x_next - x_k).abs().max() if tol else None   # residual de DR
+            y_k, x_k = y_next, x_next
+            if tol and it % 25 == 0 and it > 0 and incr_max < tol:
                 break
         return y_k, x_k
 

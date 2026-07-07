@@ -57,33 +57,76 @@ def make_batches(items, batch=16, shuffle=True, rng=None, device="cpu"):
 
 
 # --------------------------- Pérdidas --------------------------------------
-def paper_loss(Q, Y, A_poly, B_poly, alpha=0.01, epsilon=1e-3, beta_soft=100.0):
-    """Pérdida del paper LMI-Net (Ec. 21):
-        L = c(y*) − β_soft · λ_min(F(y*)),   con  c(y*) = +logdet(Q).
+# TODAS las pérdidas son auto-supervisadas y se evalúan sobre el certificado
+# PROYECTADO (Q, Y) que devuelve model(A, B) (no sobre la predicción cruda ŷ).
+# Comparten dos helpers para no duplicar la reconstrucción de la LMI ni el logdet:
+#   _logdet_Q      -> logdet(Q) defensivo
+#   _lambda_min_F  -> λ_min(F(y*)) sobre los N+1 bloques (reusa core.lmi_blocks, la
+#                     MISMA rutina que core._compute_F, sin alterar su comportamiento).
 
-    - `c = +logdet(Q)` (SIGNO POSITIVO): minimizar +logdet(Q) minimiza el volumen del
-      elipsoide E(Q)={x : xᵀQ⁻¹x ≤ 1}. (El signo negativo era un error de una versión
-      anterior; no se reintroduce.)
-    - logdet defensivo: eigvalsh(Q).clamp_min(1e-12).log().sum, para no dar NaN con Q
-      casi singular en épocas tempranas.
-    - λ_min(F): F es bloque-diagonal (N+1 bloques); λ_min = mínimo sobre bloques.
-      λ_min<0 penaliza violación residual; λ_min>0 premia margen interior. Ambos
-      efectos son intencionales.
-    - Se evalúa sobre la salida PROYECTADA (Q, Y), no sobre la predicción cruda.
-    """
-    logdetQ = torch.linalg.eigvalsh(Q).clamp_min(1e-12).log().sum(-1)              # (B,)
+def _logdet_Q(Q):
+    """logdet(Q) DEFENSIVO: eigvalsh(Q).clamp_min(1e-12).log().sum. El clamp evita NaN
+    cuando Q es casi singular en épocas tempranas (autovalores ~0 -> log -> -inf)."""
+    return torch.linalg.eigvalsh(Q).clamp_min(1e-12).log().sum(-1)                 # (B,)
+
+
+def _lambda_min_F(Q, Y, A_poly, B_poly, alpha, epsilon):
+    """λ_min(F(y*)) del bloque-diagonal: mínimo sobre los N+1 bloques simétricos de
+    eigvalsh(F_b)[...,0]. λ_min<0 mide violación residual de la LMI; λ_min>0 mide el
+    margen interior (holgura de factibilidad). Reconstruye F con core.lmi_blocks."""
     F_list = lmi_blocks(Q, Y, A_poly, B_poly, alpha, epsilon)                      # N+1 bloques
-    lam_min = torch.stack([torch.linalg.eigvalsh(0.5 * (F + F.transpose(-1, -2)))[..., 0]
-                           for F in F_list], dim=-1).min(dim=-1).values            # (B,)
-    return (logdetQ - beta_soft * lam_min).mean()
+    return torch.stack([torch.linalg.eigvalsh(0.5 * (F + F.transpose(-1, -2)))[..., 0]
+                        for F in F_list], dim=-1).min(dim=-1).values              # (B,)
+
+
+def paper_loss(Q, Y, A_poly, B_poly, alpha=0.01, epsilon=1e-3, beta_soft=100.0):
+    """(1) Pérdida del paper LMI-Net (Ec. 21):
+        L = logdet(Q) − β_soft · λ_min(F(y*)),   β_soft = 100  (SIGNO POSITIVO en logdet).
+
+    - `+logdet(Q)` (POSITIVO): minimizarlo minimiza el volumen del elipsoide
+      E(Q)={x : xᵀQ⁻¹x ≤ 1}. NO se reintroduce el signo negativo (era un bug viejo).
+    - β·λ_min(F): empuja el certificado hacia el interior estricto del conjunto factible.
+    """
+    return (_logdet_Q(Q) - beta_soft * _lambda_min_F(Q, Y, A_poly, B_poly, alpha, epsilon)).mean()
 
 
 def control_loss(Q, Y, A_poly=None, B_poly=None):
-    """Alternativa auto-supervisada (NO del paper): volumen (traza Q) + esfuerzo
-    (||Y||_F^2). Misma firma que paper_loss; ignora A_poly, B_poly."""
+    """(2) Alternativa auto-supervisada (NO del paper): volumen (traza Q) + esfuerzo
+    (proxy ||Y||_F^2). Misma firma que paper_loss; ignora A_poly, B_poly."""
     vol = torch.diagonal(Q, dim1=-2, dim2=-1).sum(-1).mean()
     eff = (torch.linalg.matrix_norm(Y, ord="fro", dim=(1, 2)) ** 2).mean()
     return vol + 0.1 * eff
+
+
+def esfuerzo_loss(Q, Y, A_poly=None, B_poly=None):
+    """(4) Esfuerzo de control REAL: ||K||_F² con K = Y·Q⁻¹ (la ganancia efectiva del
+    controlador), no el proxy ||Y||. Penaliza controladores agresivos.
+
+    Se calcula Kᵀ = Q⁻¹Yᵀ vía torch.linalg.solve(Q, Yᵀ) (Q simétrica -> Q⁻¹ simétrica),
+    más estable que invertir Q explícitamente. ||Kᵀ||_F² = ||K||_F²."""
+    Kt = torch.linalg.solve(Q, Y.transpose(-1, -2))               # (B, n, m) = Kᵀ
+    return (Kt ** 2).sum(dim=(-2, -1)).mean()
+
+
+def condicionamiento_loss(Q, Y=None, A_poly=None, B_poly=None):
+    """(5) Condicionamiento del certificado: κ(Q) = λ_max(Q)/λ_min(Q) (vía eigvalsh(Q)).
+    Premia elipsoides de Lyapunov "redondos" (bien condicionados): un κ(Q) alto delata
+    una Q casi degenerada donde K=YQ⁻¹ se dispara. Ignora Y, A_poly, B_poly."""
+    ev = torch.linalg.eigvalsh(Q)                                 # (B, n) ascendente
+    return (ev[..., -1] / ev[..., 0].clamp_min(1e-12)).mean()
+
+
+def margen_norm_loss(Q, Y, A_poly, B_poly, alpha=0.01, epsilon=1e-3, mu=0.1):
+    """(6) Margen de factibilidad NORMALIZADO:
+        L = −λ_min(F(y*)) + μ·trace(Q),   μ = 0.1.
+
+    Minimizar −λ_min(F) = maximizar el margen interior de la LMI. El término μ·trace(Q)
+    es NECESARIO: F es homogénea de grado 1 en y, así que sin normalizar la escala de
+    (Q,Y) se puede inflar λ_min gratis (multiplicar y por un factor grande) y la pérdida
+    degenera. trace(Q) fija la escala y hace el problema bien puesto."""
+    lamF = _lambda_min_F(Q, Y, A_poly, B_poly, alpha, epsilon)
+    trQ = torch.diagonal(Q, dim1=-2, dim2=-1).sum(-1)
+    return (-lamF + mu * trQ).mean()
 
 
 def control_margen_loss(Q, Y, A_poly=None, B_poly=None, eta=1.0, piso=0.05):
@@ -126,13 +169,23 @@ def control_margen_loss(Q, Y, A_poly=None, B_poly=None, eta=1.0, piso=0.05):
 # Para añadir una pérdida nueva sin editar este archivo:
 #   from entrenamiento.training import register_loss
 #   register_loss("mi_loss", lambda model: mi_funcion_de_perdida, direction="min")
+# Las 6 pérdidas de la tesis (Parte C). paper y margen_norm dependen de alpha/epsilon,
+# que se enlazan desde el modelo en la factory; las demás son puramente de (Q, Y).
 LOSS_REGISTRY = {
-    "control": {"factory": lambda model: control_loss, "direction": "min"},
-    "control_margen": {"factory": lambda model: control_margen_loss, "direction": "min"},
     "paper": {"factory": lambda model: (lambda Q, Y, A, B:
                         paper_loss(Q, Y, A, B, alpha=model.alpha, epsilon=model.epsilon)),
               "direction": "min"},
+    "control": {"factory": lambda model: control_loss, "direction": "min"},
+    "control_margen": {"factory": lambda model: control_margen_loss, "direction": "min"},
+    "esfuerzo": {"factory": lambda model: esfuerzo_loss, "direction": "min"},
+    "condicionamiento": {"factory": lambda model: condicionamiento_loss, "direction": "min"},
+    "margen_norm": {"factory": lambda model: (lambda Q, Y, A, B:
+                        margen_norm_loss(Q, Y, A, B, alpha=model.alpha, epsilon=model.epsilon)),
+                    "direction": "min"},
 }
+
+# Orden canónico de las 6 pérdidas para el barrido (Parte D).
+LOSSES_6 = ["paper", "control", "control_margen", "esfuerzo", "condicionamiento", "margen_norm"]
 
 
 def register_loss(name, factory, direction="min"):
