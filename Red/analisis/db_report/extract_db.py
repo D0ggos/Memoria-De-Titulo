@@ -1,8 +1,10 @@
 """Extrae descriptores por sistema de DB_ssf_RS_500_c.mat -> descriptors.csv + arrays.npz"""
 import numpy as np, scipy.io as sio, pandas as pd, time, sys
+from pathlib import Path
 
-MAT = "../../DB_ssf_RS_500_c.mat"
-OUT = "."
+# Ruta canonica de la base, independiente del directorio de trabajo.
+MAT = str(Path(__file__).resolve().parents[3] / "Base de Datos" / "DB_ssf_RS_500_c.mat")
+OUT = str(Path(__file__).resolve().parent)
 
 d = sio.loadmat(MAT, struct_as_record=False, squeeze_me=True)
 BASE = d['BASE']

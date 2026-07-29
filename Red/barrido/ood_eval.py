@@ -51,12 +51,22 @@ K_GRID = sorted(set(list(range(25, 500, 25)) +
 
 
 # --------------------------- carga de modelos ------------------------------
+# Buffers deterministas (derivados solo de n): los checkpoints mas antiguos del barrido se
+# guardaron antes de que core.py los registrara. build_model ya los reconstruye correctos,
+# asi que se toleran como ausentes; cualquier OTRA clave faltante es un error real.
+_BUFFERS_DERIVADOS = {"triu_indices"}
+
+
 def load_checkpoint(path):
     """Reconstruye el modelo desde un checkpoint del barrido (guarda cfg + state_dict)."""
     ck = torch.load(path, map_location="cpu", weights_only=False)
     cfg = SimpleNamespace(**ck["cfg"])
     model = build_model(cfg)
-    model.load_state_dict(ck["state_dict"])
+    missing, unexpected = model.load_state_dict(ck["state_dict"], strict=False)
+    faltan = set(missing) - _BUFFERS_DERIVADOS
+    if faltan or unexpected:
+        raise RuntimeError(f"state_dict incompatible en {path}: "
+                           f"faltan={sorted(faltan)} sobran={sorted(unexpected)}")
     model.double().eval()
     return model, ck["cfg"], int(ck["epoch"])
 
@@ -188,11 +198,18 @@ def _bank_for(cfg):
     return None
 
 
+def _ladder_done(out_root, tag):
+    """El shard ladder/<tag> existe -> ese modelo ya se evaluo (para el resume)."""
+    d = Path(out_root) / "ladder"
+    return (d / f"{tag}.parquet").exists() or (d / f"{tag}.csv").exists()
+
+
 def run_ood(models_root, out_root, budgets=DR_EVAL, mechanism=True, final_only=True,
-            n_random=5):
+            n_random=5, resume=True):
     """Recorre los checkpoints del barrido bajo models_root, evalua cada modelo aplicable
     en su banco y escribe shards crudos. Para el banco del profesor, ademas corre la
-    instrumentacion del mecanismo (trace + summary)."""
+    instrumentacion del mecanismo (trace + summary).
+    resume=True (defecto): salta modelos cuyo shard ladder ya existe (retomable si se cae)."""
     models_root = Path(models_root); out_root = Path(out_root)
     ckpts = sorted(models_root.rglob("epoch_*.pt"))
     if final_only:
@@ -203,8 +220,10 @@ def run_ood(models_root, out_root, budgets=DR_EVAL, mechanism=True, final_only=T
             if p.parent.name not in by_run or ep > by_run[p.parent.name][0]:
                 by_run[p.parent.name] = (ep, p)
         ckpts = [p for _ep, p in by_run.values()]
-    print(f"OOD: {len(ckpts)} checkpoints a evaluar bajo {models_root} (final_only={final_only})")
-    for path in ckpts:
+    print(f"OOD: {len(ckpts)} checkpoints a evaluar bajo {models_root} "
+          f"(final_only={final_only}, resume={resume})", flush=True)
+    done = skipped = 0
+    for i, path in enumerate(ckpts, 1):
         model, cfg, epoch = load_checkpoint(path)
         bank_name = _bank_for(cfg)
         if bank_name is None:
@@ -212,6 +231,9 @@ def run_ood(models_root, out_root, budgets=DR_EVAL, mechanism=True, final_only=T
         cfg_cols = {**cfg, "ckpt_epoch": epoch}
         rid = cfg.get("run_id", path.parent.name)
         tag = f"{rid}__ep{epoch}"
+        if resume and _ladder_done(out_root, tag):
+            skipped += 1
+            continue
         if bank_name == "pole_shift":
             rows = evaluate_bank_ladder(model, pole_shift_bank(), budgets, "pole_shift", cfg_cols)
             save_table(pd.DataFrame(rows), out_root / "ladder" / tag)
@@ -222,7 +244,10 @@ def run_ood(models_root, out_root, budgets=DR_EVAL, mechanism=True, final_only=T
                 tr, summ = professor_mechanism(model, cfg_cols, budgets=budgets, n_random=n_random)
                 save_table(pd.DataFrame(tr), out_root / "mecanismo_trace" / tag)
                 save_table(pd.DataFrame(summ), out_root / "mecanismo_summary" / tag)
-        print(f"  OK {tag}  banco={bank_name}")
+        done += 1
+        print(f"  [{i}/{len(ckpts)}] OK {tag}  banco={bank_name}  "
+              f"(hechos={done}, saltados={skipped})", flush=True)
+    print(f"OOD FIN: {done} evaluados, {skipped} saltados (ya estaban).", flush=True)
 
 
 def main():
@@ -232,10 +257,15 @@ def main():
     ap.add_argument("--no-mechanism", action="store_true", help="omitir la instrumentacion del profesor")
     ap.add_argument("--all-epochs", action="store_true", help="evaluar todos los checkpoints, no solo el final")
     ap.add_argument("--n-random", type=int, default=5)
+    ap.add_argument("--fresh", action="store_true", help="re-evaluar todo (desactiva el resume)")
     args = ap.parse_args()
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     torch.set_num_threads(1); torch.set_default_dtype(torch.float64)
     run_ood(args.models, args.out, mechanism=not args.no_mechanism,
-            final_only=not args.all_epochs, n_random=args.n_random)
+            final_only=not args.all_epochs, n_random=args.n_random, resume=not args.fresh)
 
 
 if __name__ == "__main__":

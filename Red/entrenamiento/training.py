@@ -10,6 +10,8 @@ Núcleo del que depende:
   - vertices.LMINetVertices          (arquitectura Deep Sets + solver DR)
 """
 
+from pathlib import Path
+
 import numpy as np
 import torch
 from torch.utils.data import random_split
@@ -17,7 +19,13 @@ from torch.utils.data import random_split
 from pipeline.data_loader import RobustControlMatlabDataset
 from red.core import lmi_blocks
 
-MAT_FILE = "DB_ssf_RS_500_c.mat"
+# La base cruda vive en "Base de Datos/" (canonica). Se admite tambien una copia junto a
+# Red/ por compatibilidad con corridas antiguas. Ruta absoluta: asi funciona sea cual sea
+# el directorio de trabajo desde el que se lance el script.
+_RED = Path(__file__).resolve().parents[1]
+_CANDIDATAS = [_RED / "DB_ssf_RS_500_c.mat",
+               _RED.parent / "Base de Datos" / "DB_ssf_RS_500_c.mat"]
+MAT_FILE = str(next((p for p in _CANDIDATAS if p.exists()), _CANDIDATAS[-1]))
 
 
 # --------------------------- Carga y transformación ------------------------
@@ -42,16 +50,18 @@ def split_items(items, frac=0.8, seed=42):
     return list(tr), list(te)
 
 
-def make_batches(items, batch=16, shuffle=True, rng=None, device="cpu"):
-    """Agrupa items del MISMO N en lotes apilados (A,B). Cada lote es uniforme en N."""
+def make_batches(items, batch=16, shuffle=True, rng=None, device="cpu", dtype=None):
+    """Agrupa items del MISMO N en lotes apilados (A,B). Cada lote es uniforme en N.
+    `device`/`dtype`: destino de los tensores (dtype=None conserva el de los items,
+    float64). Para GPU se pasa device='cuda'; dtype solo si se cambia la precision."""
     idx = list(range(len(items)))
     if shuffle:
         (rng or np.random).shuffle(idx)
     out = []
     for s in range(0, len(idx), batch):
         ch = idx[s:s + batch]
-        A = torch.stack([items[i][0] for i in ch]).to(device)
-        B = torch.stack([items[i][1] for i in ch]).to(device)
+        A = torch.stack([items[i][0] for i in ch]).to(device=device, dtype=dtype)
+        B = torch.stack([items[i][1] for i in ch]).to(device=device, dtype=dtype)
         out.append((A, B))
     return out
 

@@ -68,7 +68,9 @@ class LMICore(nn.Module):
         self.dim_Q = (n * (n + 1)) // 2
         self.dim_Y = m * n
         self.dim_y = self.dim_Q + self.dim_Y
-        self.triu_indices = torch.triu_indices(row=n, col=n, offset=0)
+        # buffer (no parametro): asi model.to(device) lo mueve a la GPU y el
+        # indexado avanzado de _vec_to_Q no cruza dispositivos (CPU idx vs CUDA tensor).
+        self.register_buffer("triu_indices", torch.triu_indices(row=n, col=n, offset=0))
 
         # Config de la estrategia implicita (la lee ImplicitSolver)
         #   forward  : corre DR hasta el punto fijo (o max_iters) con early-stop en tol.

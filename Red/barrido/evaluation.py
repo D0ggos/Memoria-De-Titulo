@@ -55,7 +55,7 @@ def _iters_min(sys_stable_by_ms, milestones):
 
 @torch.no_grad()
 def evaluate_ring(model, ring_cells, milestones, ring_name,
-                  cvxpy=False, cvxpy_max=30, device="cpu"):
+                  cvxpy=False, cvxpy_max=30, device="cpu", dtype=None):
     """Evalua un anillo (dict (m,N)->items) sobre el ladder de dr_eval. Devuelve una lista
     de filas CRUDAS (una por sistema x milestone). Estratificado por celda (m,N)."""
     rows = []
@@ -63,7 +63,7 @@ def evaluate_ring(model, ring_cells, milestones, ring_name,
     for (m, N), items in ring_cells.items():
         if not items:
             continue
-        A, B = stack_cell(items, device=device)
+        A, B = stack_cell(items, device=device, dtype=dtype)
         y_hat = model(A, B, return_unconstrained=True)         # fija model.N, model.m
         L, c, M_inv = model._dr_precompute(A, B)
         ckpts = dr_eval_checkpoints(model, y_hat, L, c, M_inv, milestones)

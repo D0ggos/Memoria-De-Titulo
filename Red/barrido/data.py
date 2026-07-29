@@ -24,10 +24,10 @@ from pathlib import Path
 
 import torch
 
-from entrenamiento.training import load_vertices, split_items
+from entrenamiento.training import MAT_FILE, load_vertices, split_items
 
 ROOT = Path(__file__).resolve().parents[1]                 # .../Red
-MAT = str(ROOT / "DB_ssf_RS_500_c.mat")
+MAT = MAT_FILE                                              # unica fuente de verdad de la ruta
 
 TRAIN_NS = (2, 3, 4)                                        # N vistos en entrenamiento
 HELDOUT_N = 5                                               # N estructuralmente retenido
@@ -38,7 +38,13 @@ PROBE_NS = (2, 3, 4, 5)
 
 @lru_cache(maxsize=None)
 def load_cell(n_x, m, N):
-    """Items (A,B) de una celda (memoizado por proceso). Lista vacia si la celda no existe."""
+    """Items (A,B) de una celda (memoizado por proceso). Lista vacia si la celda no existe.
+    Una celda ausente es normal (no toda combinacion (n_x,m,N) esta en la base); una base
+    ausente NO lo es y se reporta, en vez de degradarse a 'no hay celdas de entrenamiento'."""
+    if not Path(MAT).exists():
+        raise FileNotFoundError(
+            f"no encuentro la base de datos en {MAT}. Deberia estar en "
+            f"'Base de Datos/DB_ssf_RS_500_c.mat' (ver README).")
     try:
         return load_vertices(n_x, m, N, mat=MAT)
     except Exception:
@@ -97,8 +103,9 @@ def make_datasets(arch, n_x, train_size):
     return train_by_cell, a1_by_cell, a2_by_cell
 
 
-def stack_cell(items, device="cpu"):
-    """Apila una celda (uniforme en (m,N)) a tensores (B,N,n,n),(B,N,n,m)."""
-    A = torch.stack([it[0] for it in items]).to(device)
-    B = torch.stack([it[1] for it in items]).to(device)
+def stack_cell(items, device="cpu", dtype=None):
+    """Apila una celda (uniforme en (m,N)) a tensores (B,N,n,n),(B,N,n,m).
+    `device`/`dtype`: destino (dtype=None conserva float64 de los items)."""
+    A = torch.stack([it[0] for it in items]).to(device=device, dtype=dtype)
+    B = torch.stack([it[1] for it in items]).to(device=device, dtype=dtype)
     return A, B

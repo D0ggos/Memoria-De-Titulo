@@ -37,9 +37,10 @@ from .data import make_datasets
 from .evaluation import evaluate_ring
 
 
-def build_model(cfg):
-    """Instancia la arquitectura de la corrida en float64. Para implicit, dr_iters solo se
-    usa como presupuesto por defecto (el forward implicito corre hasta implicit_max_iters)."""
+def build_model(cfg, dtype=torch.float64):
+    """Instancia la arquitectura de la corrida con la precision `dtype` (float64 por
+    defecto). Para implicit, dr_iters solo se usa como presupuesto por defecto (el forward
+    implicito corre hasta implicit_max_iters)."""
     dr = cfg.dr_train if cfg.dr_train is not None else 500
     if cfg.arch == "actuadores":
         model = LMINetActuators(n=cfg.n_x, alpha=cfg.alpha, dr_iters=dr, backprop=cfg.backprop)
@@ -50,7 +51,7 @@ def build_model(cfg):
                               backprop=cfg.backprop)
     else:
         raise ValueError(f"arquitectura desconocida: {cfg.arch}")
-    return model.double()
+    return model.to(dtype)
 
 
 def save_table(df, path_noext):
@@ -83,20 +84,21 @@ def _train_epoch(model, batches, loss_fn, opt):
     return run_ / max(nb, 1)
 
 
-def run_one(cfg, out_root, lr=1e-3, batch=16):
+def run_one(cfg, out_root, lr=1e-3, batch=16, device="cpu", dtype=torch.float64):
     """Ejecuta una corrida completa. Devuelve un dict-resumen. Robusto a fallos: captura la
-    excepcion, la escribe en un .err y sigue (para no tumbar el Pool del barrido)."""
+    excepcion, la escribe en un .err y sigue (para no tumbar el Pool del barrido).
+    `device`/`dtype`: donde corre el modelo (CPU/'cuda') y con que precision."""
     out_root = Path(out_root)
     rid = cfg.run_id()
     try:
-        torch.set_default_dtype(torch.float64)
+        torch.set_default_dtype(dtype)
         torch.manual_seed(cfg.seed); np.random.seed(cfg.seed)
 
         train_by_cell, a1, a2 = make_datasets(cfg.arch, cfg.n_x, cfg.train_size)
         if not train_by_cell:
             raise RuntimeError(f"sin celdas de entrenamiento para arch={cfg.arch} n_x={cfg.n_x}")
 
-        model = build_model(cfg)
+        model = build_model(cfg, dtype=dtype).to(device)
         loss_fn = get_loss_fn(cfg.loss, model)
         opt = torch.optim.Adam(model.parameters(), lr=lr)
         rng = np.random.default_rng(cfg.seed)
@@ -109,7 +111,8 @@ def run_one(cfg, out_root, lr=1e-3, batch=16):
         for ep in range(1, cfg.epochs + 1):
             batches = []
             for _cell, items in train_by_cell.items():
-                batches += make_batches(items, batch=batch, shuffle=True, rng=rng)
+                batches += make_batches(items, batch=batch, shuffle=True, rng=rng,
+                                        device=device, dtype=dtype)
             rng.shuffle(batches)
             t0 = time.perf_counter()
             tr_loss = _train_epoch(model, batches, loss_fn, opt)
@@ -127,7 +130,8 @@ def run_one(cfg, out_root, lr=1e-3, batch=16):
                     if not ring:
                         continue
                     rrows = evaluate_ring(model, ring, cfg.dr_eval, ring_name,
-                                          cvxpy=cfg.cvxpy_ceiling, cvxpy_max=cfg.cvxpy_max_systems)
+                                          cvxpy=cfg.cvxpy_ceiling, cvxpy_max=cfg.cvxpy_max_systems,
+                                          device=device, dtype=dtype)
                     for row in rrows:
                         row.update(cfg_cols); row["epoch"] = ep; row["train_loss"] = tr_loss
                     result_rows.extend(rrows)

@@ -1,5 +1,24 @@
+# --- entornos y basura del sistema ---
 .DS_STORE
 .venv
+.venv-cuda/
+.claude/
 *.pyc
-.claude
 __pycache__/
+
+# --- material descartado en la limpieza (revisar y borrar a mano) ---
+_descartado/
+
+# --- salidas pesadas del barrido: se regeneran corriendo barrido.driver ---
+# Se versiona solo lo liviano: meta/ (tiempos), loss/ (curvas), OOD/, figuras/ y reportes.
+Red/analisis/resultados/barrido/*/results/
+Red/analisis/resultados/barrido/*/models/
+Red/analisis/resultados/barrido/E0/
+*.pt
+
+# --- artefactos derivados de la base de datos (los produce pipeline/read_database.py) ---
+Red/dataset_RS.mat
+Red/dataset_RS.txt
+Red/dataset_nonQS.mat
+Red/dataset_nonQS.txt
+Red/DB_ssf_RS_500_c.mat

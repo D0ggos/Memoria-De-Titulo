@@ -33,7 +33,7 @@ from analisis.validate_projection import build_operator, cvxpy_projection
 torch.set_default_dtype(torch.float64)
 
 # ----------------------------- Config -------------------------------------
-MAT   = str(Path(__file__).resolve().parents[1] / "DB_ssf_RS_500_c.mat")
+from entrenamiento.training import MAT_FILE as MAT      # ruta canonica de la base
 OUT   = Path(__file__).resolve().parent / "resultados" / "proyeccion_dr_cvxpy"; OUT.mkdir(parents=True, exist_ok=True)
 N_LIST   = [2, 3, 4, 5]
 ITERS    = [500, 1000, 2000, 3000, 4000]

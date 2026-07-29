@@ -125,25 +125,30 @@ def stage_E3():
 
 
 def stage_E4():
-    """Backprop + escalera de arquitectura:
-       (a) perdida(6) x {unrolling(dr=30), implicit} x semilla(2);
-       (b) perdida(6) x arquitectura(3) x semilla(2).
-    Resto en base (n_x=3, size=150, alpha=0.01)."""
+    """Retropropagacion + escalera de arquitectura x orden:
+       (a) perdida(6) x {unrolling(dr=30), implicit} x semilla(2), en la config base;
+       (b) perdida(6) x arquitectura NO base(2: vertices, vanilla) x n_x(4) x semilla(2).
+    Las celdas de `actuadores` para n_x != 3 las aporta E2, que barre el orden con esa
+    arquitectura; juntas completan la malla arquitectura x orden sin repetir corridas.
+    Resto en base (size=150, alpha=0.01, dr=30). vanilla no es invariante -> no tiene A2.
+    120 corridas."""
     out = []
     for loss in LOSSES:
         for seed in SEEDS:
-            out.append(RunConfig(stage="E4", loss=loss, arch=BASE_ARCH, backprop="unrolling",
-                                 dr_train=BASE_DR_TRAIN, alpha=BASE_ALPHA, n_x=BASE_NX,
-                                 train_size=BASE_SIZE, seed=seed))
-            out.append(RunConfig(stage="E4", loss=loss, arch=BASE_ARCH, backprop="implicit",
-                                 dr_train=None, alpha=BASE_ALPHA, n_x=BASE_NX,
-                                 train_size=BASE_SIZE, seed=seed))
-            for arch in ARCHS:
-                if arch == BASE_ARCH:
-                    continue                              # ya cubierto por la fila unrolling de arriba
-                out.append(RunConfig(stage="E4", loss=loss, arch=arch, backprop="unrolling",
-                                     dr_train=BASE_DR_TRAIN, alpha=BASE_ALPHA, n_x=BASE_NX,
+            # (a) duelo de retropropagacion, config base completa
+            for bp, dr in (("unrolling", BASE_DR_TRAIN), ("implicit", None)):
+                out.append(RunConfig(stage="E4", loss=loss, arch=BASE_ARCH, backprop=bp,
+                                     dr_train=dr, alpha=BASE_ALPHA, n_x=BASE_NX,
                                      train_size=BASE_SIZE, seed=seed))
+            # (b) escalera de arquitectura en TODOS los ordenes
+            for nx in NX:
+                for arch in ARCHS:
+                    if arch == BASE_ARCH:
+                        continue                          # n_x=3 ya esta en (a); el resto lo da E2
+                    out.append(RunConfig(stage="E4", loss=loss, arch=arch,
+                                         backprop="unrolling", dr_train=BASE_DR_TRAIN,
+                                         alpha=BASE_ALPHA, n_x=nx, train_size=BASE_SIZE,
+                                         seed=seed))
     return out
 
 
