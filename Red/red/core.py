@@ -54,7 +54,7 @@ def lmi_blocks(Q, Y, A_poly, B_poly, alpha, epsilon):
 
 class LMICore(nn.Module):
     def __init__(self, n=3, m=1, N=2, alpha=0.1, epsilon=1e-5, dr_iters=100,
-                 sigma=0.01, backprop="unrolling"):
+                 sigma=0.01, backprop="unrolling", sigma_adaptativo=False):
         super().__init__()
         self.n = n
         self.m = m
@@ -63,6 +63,11 @@ class LMICore(nn.Module):
         self.epsilon = epsilon
         self.dr_iters = dr_iters                 # iteraciones de DR (unrolling / inferencia)
         self.sigma = sigma
+        self.sigma_base = sigma                  # valor nominal (sigma puede volverse tensor)
+        # sigma_adaptativo: el peso de anclaje se escala por la dispersion del politopo,
+        # max_i ||A_i - A_medio||_2 (la misma metrica del reporte de la base). Los politopos
+        # dispersos tienen conjunto factible mas estrecho y toleran menos anclaje al ŷ.
+        self.sigma_adaptativo = sigma_adaptativo
 
         # y = [vec(Q simetrica), vec(Y)].  dim_Q depende solo de n; dim_Y de (m, n).
         self.dim_Q = (n * (n + 1)) // 2
@@ -161,7 +166,20 @@ class LMICore(nn.Module):
         L, c = self._construct_L_c(A_poly, B_poly)
         I_y = torch.eye(self.dim_y, device=A_poly.device, dtype=A_poly.dtype).unsqueeze(0).expand(B_sz, -1, -1)
         M_inv = torch.linalg.inv(I_y + torch.bmm(L.transpose(1, 2), L))
+        # sigma adaptativo: se fija AQUI, una vez por lote, porque M_inv no depende de sigma
+        # y las tres formulas que lo usan son aritmetica que difunde sobre (B,1). Fuera de
+        # este modo self.sigma sigue siendo el escalar de siempre y nada cambia.
+        if self.sigma_adaptativo:
+            self.sigma = self._sigma_por_dispersion(A_poly)
         return L, c, M_inv
+
+    @torch.no_grad()
+    def _sigma_por_dispersion(self, A_poly):
+        """sigma_i = sigma_base / (1 + dispersion_i), con dispersion = max_i ||A_i - A_medio||_2.
+        Devuelve (B,1): mas dispersion -> menos anclaje al ŷ del codificador."""
+        disp = torch.linalg.matrix_norm(A_poly - A_poly.mean(dim=1, keepdim=True),
+                                        ord=2, dim=(-2, -1)).amax(dim=1, keepdim=True)
+        return self.sigma_base / (1.0 + disp)
 
     def _dr_step_batch(self, y_k, x_k, y_hat, L, c, M_inv):
         """UNA iteracion de Douglas-Rachford (batcheada) sobre el estado (y_k, x_k) ->

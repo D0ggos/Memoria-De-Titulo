@@ -148,7 +148,8 @@ def run_stage(stage, out_base, workers, device, dtype_str, threads, cvxpy,
 def main():
     ap = argparse.ArgumentParser(description="Barrido experimental LMI-Net por etapas.")
     ap.add_argument("--stage", required=True,
-                    help="E0 | E1 | E2 | E3 | E4 | ALL (=E1,E2,E3,E4) | lista 'E1,E3'")
+                    help="E0 | E1 | E2 | E3 | E4 | E7 (sensibilidad sigma/epsilon) | "
+                         "E8 (sigma adaptativo) | ALL (=E1,E2,E3,E4) | lista 'E1,E3'")
     ap.add_argument("--workers", type=int, default=None,
                     help="procesos en paralelo. Defecto: CPU->cpu_count-1, GPU->1")
     ap.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu",

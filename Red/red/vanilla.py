@@ -37,9 +37,11 @@ _ACTIVATIONS = {"relu": nn.ReLU, "mish": nn.Mish, "tanh": nn.Tanh, "gelu": nn.GE
 
 class LMINetVanilla(LMICore):
     def __init__(self, n=3, m=1, N=2, hidden_dim=64, n_hidden=2, activation="relu",
-                 alpha=0.01, epsilon=1e-3, dr_iters=500, sigma=0.01, backprop="implicit"):
+                 alpha=0.01, epsilon=1e-3, dr_iters=500, sigma=0.01, backprop="implicit",
+                 sigma_adaptativo=False):
         super().__init__(n=n, m=m, N=N, alpha=alpha, epsilon=epsilon,
-                         dr_iters=dr_iters, sigma=sigma, backprop=backprop)
+                         dr_iters=dr_iters, sigma=sigma, backprop=backprop,
+                         sigma_adaptativo=sigma_adaptativo)
         # Regimen de iteraciones fiel al paper: 500 iteraciones DR FIJAS (sin early-stop).
         self.implicit_max_iters = dr_iters
         self.implicit_tol = 0.0

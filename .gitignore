@@ -8,6 +8,7 @@ __pycache__/
 
 # --- material descartado en la limpieza (revisar y borrar a mano) ---
 _descartado/
+_descartado*.zip
 
 # --- salidas pesadas del barrido: se regeneran corriendo barrido.driver ---
 # Se versiona solo lo liviano: meta/ (tiempos), loss/ (curvas), OOD/, figuras/ y reportes.

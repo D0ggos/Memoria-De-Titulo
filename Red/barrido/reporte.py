@@ -27,7 +27,7 @@ import numpy as np                                        # noqa: E402
 import pandas as pd                                       # noqa: E402
 
 DEFAULT_BASE = ROOT / "analisis" / "resultados" / "barrido"
-ALL_STAGES = ["E1", "E2", "E3", "E4"]
+ALL_STAGES = ["E1", "E2", "E3", "E4", "E7", "E8", "E9"]
 DUEL_ARCHS = ["actuadores", "vertices", "vanilla"]        # orden para el duelo arch x n_x
 # Ejes de config para el ranking. NO se incluye "stage": la config base se re-entrena
 # identica en varias etapas (E1/E2/E4) y agrupar por stage la mostraria como filas
@@ -51,7 +51,20 @@ def read_results(base, stages):
                 frames.append(pd.read_parquet(p) if p.suffix == ".parquet" else pd.read_csv(p))
             except Exception as e:                          # noqa: BLE001
                 print(f"  aviso: no pude leer {p.name}: {e}")
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if not frames:
+        return pd.DataFrame()
+    df = pd.concat(frames, ignore_index=True)
+    # Los shards anteriores a E7/E8 no traen columnas sigma/epsilon: se rellenan con el
+    # default que esas corridas usaron de hecho (epsilon depende de la arquitectura), para
+    # que puedan compararse contra el barrido de sensibilidad sin quedar como NaN.
+    if "sigma" not in df.columns:
+        df["sigma"] = np.nan
+    if "epsilon" not in df.columns:
+        df["epsilon"] = np.nan
+    df["sigma"] = df["sigma"].fillna(0.01)
+    df["epsilon"] = df["epsilon"].fillna(
+        pd.Series(np.where(df["arch"] == "vanilla", 1e-3, 1e-5), index=df.index))
+    return df
 
 
 def count_meta(base, stages):

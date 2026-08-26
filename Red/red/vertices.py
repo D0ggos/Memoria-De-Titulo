@@ -22,9 +22,11 @@ from .core import LMICore
 
 class LMINetVertices(LMICore):
     def __init__(self, n=3, m=1, hidden_dim=128, enc_dim=128, alpha=0.1,
-                 epsilon=1e-5, dr_iters=100, sigma=0.01, pool="mean", backprop="unrolling"):
+                 epsilon=1e-5, dr_iters=100, sigma=0.01, pool="mean", backprop="unrolling",
+                 sigma_adaptativo=False):
         super().__init__(n=n, m=m, N=2, alpha=alpha, epsilon=epsilon,
-                         dr_iters=dr_iters, sigma=sigma, backprop=backprop)  # N=2 placeholder
+                         dr_iters=dr_iters, sigma=sigma, backprop=backprop,
+                         sigma_adaptativo=sigma_adaptativo)  # N=2 placeholder
         assert pool in ("mean", "max", "sum")
         self.pool = pool
         self.vertex_dim = n * n + n * m                     # A_i aplanada + B_i aplanada

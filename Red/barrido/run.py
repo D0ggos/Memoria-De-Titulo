@@ -40,15 +40,28 @@ from .evaluation import evaluate_ring
 def build_model(cfg, dtype=torch.float64):
     """Instancia la arquitectura de la corrida con la precision `dtype` (float64 por
     defecto). Para implicit, dr_iters solo se usa como presupuesto por defecto (el forward
-    implicito corre hasta implicit_max_iters)."""
+    implicito corre hasta implicit_max_iters).
+
+    sigma/epsilon solo se pasan cuando la corrida los fija (E7/E8); si valen None se deja
+    el default de cada arquitectura, que NO es el mismo (vanilla usa epsilon=1e-3, fiel al
+    paper, y las invariantes 1e-5). Asi las corridas E1-E4 conservan su comportamiento."""
     dr = cfg.dr_train if cfg.dr_train is not None else 500
+    extra = {}
+    if getattr(cfg, "sigma", None) is not None:
+        extra["sigma"] = cfg.sigma
+    if getattr(cfg, "epsilon", None) is not None:
+        extra["epsilon"] = cfg.epsilon
+    if getattr(cfg, "sigma_adaptativo", False):
+        extra["sigma_adaptativo"] = True
     if cfg.arch == "actuadores":
-        model = LMINetActuators(n=cfg.n_x, alpha=cfg.alpha, dr_iters=dr, backprop=cfg.backprop)
+        model = LMINetActuators(n=cfg.n_x, alpha=cfg.alpha, dr_iters=dr,
+                                backprop=cfg.backprop, **extra)
     elif cfg.arch == "vertices":
-        model = LMINetVertices(n=cfg.n_x, m=1, alpha=cfg.alpha, dr_iters=dr, backprop=cfg.backprop)
+        model = LMINetVertices(n=cfg.n_x, m=1, alpha=cfg.alpha, dr_iters=dr,
+                               backprop=cfg.backprop, **extra)
     elif cfg.arch == "vanilla":
         model = LMINetVanilla(n=cfg.n_x, m=1, N=BASE_N, alpha=cfg.alpha, dr_iters=dr,
-                              backprop=cfg.backprop)
+                              backprop=cfg.backprop, **extra)
     else:
         raise ValueError(f"arquitectura desconocida: {cfg.arch}")
     return model.to(dtype)

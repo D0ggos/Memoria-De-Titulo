@@ -24,9 +24,11 @@ from .core import LMICore
 
 class LMINetActuators(LMICore):
     def __init__(self, n=3, hidden_dim=128, enc_dim=128, alpha=0.1,
-                 epsilon=1e-5, dr_iters=100, sigma=0.01, pool="mean", backprop="unrolling"):
+                 epsilon=1e-5, dr_iters=100, sigma=0.01, pool="mean", backprop="unrolling",
+                 sigma_adaptativo=False):
         super().__init__(n=n, m=1, N=2, alpha=alpha, epsilon=epsilon,
-                         dr_iters=dr_iters, sigma=sigma, backprop=backprop)  # m,N,dim_y dinamicos
+                         dr_iters=dr_iters, sigma=sigma, backprop=backprop,
+                         sigma_adaptativo=sigma_adaptativo)  # m,N,dim_y dinamicos
         assert pool in ("mean", "max", "sum")
         self.pool = pool
         self.token_dim = n * n + n                          # [vec(A_i), b_ij]  (sin m ni N)

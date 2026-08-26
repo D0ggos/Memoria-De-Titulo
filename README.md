@@ -5,6 +5,9 @@ un certificado LMI y una capa de proyección Douglas–Rachford que lo vuelve fa
 repositorio contiene el código, la base de datos de entrada y los resultados agregados del
 estudio experimental que respalda el capítulo de resultados de la memoria.
 
+Para una descripción a fondo del código, el protocolo experimental y las trampas
+conocidas de los datos, ver [`CONTEXTO_CODIGO.md`](CONTEXTO_CODIGO.md).
+
 ## Estructura
 
 ```
