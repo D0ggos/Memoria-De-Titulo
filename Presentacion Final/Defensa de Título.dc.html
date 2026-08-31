@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Fira+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root{
+    --fg:#23373b; --bg:#fafafa; --acc:#eb811b;
+    --fg70:#5d6d70; --fg50:#8a9698; --block:#e8ecec; --rule:#c8d0d1;
+    --sec-bg:#fafafa; --sec-fg:#23373b; --pb:1;
+  }
+  html,body{margin:0;padding:0;background:#000}
+  a{color:var(--acc);text-decoration:none;border-bottom:1px solid var(--acc)}
+  a:hover{color:#a75a0f;border-bottom-color:#a75a0f}
+  .katex{font-size:1em}
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+  <section data-label="Portada" data-screen-label="01" data-speaker-notes="Saludo breve: nombre, título de la memoria, guía y comisión. No más de 30 segundos." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box">
+    <div style="font-size:100px;line-height:1.05;font-weight:300;letter-spacing:-0.02em;max-width:1500px">Título</div>
+    <div style="height:5px;background:var(--acc);margin:44px 0 34px"></div>
+    <div style="font-size:46px;font-weight:300;color:var(--fg70);line-height:1.2">Subtítulo</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:92px">
+      <div style="font-size:40px;font-weight:400">Autor Autor</div>
+      <div style="font-size:30px;color:var(--fg70);line-height:1.55">Guía: Euler<br>Comisión: A y B<br>Universidad de Concepción</div>
+    </div>
+    <div style="font-size:28px;color:var(--fg50);margin-top:56px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">Defensa de título · 2026</div>
+  </section>
+
+  <section data-label="Programa" data-screen-label="02" data-speaker-notes="Anuncia el recorrido en una frase por sección; señala que los resultados están en la sección 3." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Programa</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:13%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:80px 96px;display:flex;flex-direction:column;gap:38px">
+      <div style="display:flex;gap:34px;align-items:baseline;border-bottom:1px solid var(--rule);padding-bottom:26px">
+        <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';color:var(--acc);font-size:34px">1</div>
+        <div style="font-size:44px">Motivación y contexto</div>
+      </div>
+      <div style="display:flex;gap:34px;align-items:baseline;border-bottom:1px solid var(--rule);padding-bottom:26px">
+        <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';color:var(--acc);font-size:34px">2</div>
+        <div style="font-size:44px">Preliminares</div>
+      </div>
+      <div style="display:flex;gap:34px;align-items:baseline;border-bottom:1px solid var(--rule);padding-bottom:26px">
+        <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';color:var(--acc);font-size:34px">3</div>
+        <div style="font-size:44px">Resultados</div>
+      </div>
+      <div style="display:flex;gap:34px;align-items:baseline;padding-bottom:26px">
+        <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';color:var(--acc);font-size:34px">4</div>
+        <div style="font-size:44px">Conclusiones</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Sección 1" data-screen-label="03" data-speaker-notes="Transición: por qué el problema importa." style="background:var(--sec-bg);color:var(--sec-fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box">
+    <div style="height:1px;background:var(--acc)"></div>
+    <div style="display:flex;align-items:baseline;gap:40px;padding:52px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:44px;color:var(--acc)">1</div>
+      <div style="font-size:80px;font-weight:300;letter-spacing:-0.02em">Motivación y contexto</div>
+    </div>
+    <div style="height:1px;background:var(--acc)"></div>
+  </section>
+
+  <section data-label="Algoritmos de aproximación" data-screen-label="04" data-speaker-notes="Lee la definición y enfatiza las dos exigencias: garantía multiplicativa y tiempo polinomial." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Algoritmos de aproximación</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:27%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:76px 96px;display:flex;flex-direction:column;gap:44px">
+      <div style="background:var(--block);padding:40px 48px;border-radius:3px">
+        <div style="font-size:34px;font-weight:500;margin-bottom:18px">Definición</div>
+        <div style="font-size:34px;line-height:1.55;text-wrap:pretty">Un algoritmo es \(\rho\)-aproximado (\(\rho\)-apx.) si todo output, \(ALG\), está a un factor \(\rho &gt; 1\) del óptimo, \(OPT\), y toma tiempo polinomial, i.e.
+          <div style="margin-top:22px;font-size:38px">\[\frac{1}{\rho}\ OPT \leq ALG \leq \rho\ OPT.\]</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:22px;font-size:32px;line-height:1.5;color:var(--fg70)">
+        <div style="display:flex;gap:24px"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:14px"></div><div>El factor \(\rho\) mide la pérdida que aceptamos a cambio de tiempo polinomial.</div></div>
+        <div style="display:flex;gap:24px"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:14px"></div><div>Para el problema de esta memoria, el mejor \(\rho\) conocido es <span style="color:var(--fg)">—</span>.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="El problema" data-screen-label="05" data-speaker-notes="Enuncia entrada, salida y objetivo. Un ejemplo pequeño en la pizarra si lo piden." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">El problema</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:33%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:76px 96px;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-content:start">
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="font-size:26px;text-transform:uppercase;letter-spacing:.16em;color:var(--acc)">Entrada</div>
+        <div style="font-size:32px;line-height:1.5;color:var(--fg70);font-style:italic">Describe la instancia: grafo, conjunto, demanda…</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="font-size:26px;text-transform:uppercase;letter-spacing:.16em;color:var(--acc)">Salida</div>
+        <div style="font-size:32px;line-height:1.5;color:var(--fg70);font-style:italic">Describe la solución factible y su costo.</div>
+      </div>
+      <div style="grid-column:1 / -1;height:1px;background:var(--rule)"></div>
+      <div style="grid-column:1 / -1;display:flex;flex-direction:column;gap:22px;font-size:34px;line-height:1.5">
+        <div style="display:flex;gap:24px"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:14px"></div><div>Dificultad: el problema es NP-difícil por —.</div></div>
+        <div style="display:flex;gap:24px"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:14px"></div><div>Estado del arte: —.</div></div>
+        <div style="display:flex;gap:24px"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:14px"></div><div>Pregunta de esta memoria: —.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Sección 2" data-screen-label="06" data-speaker-notes="Transición: herramientas mínimas para entender el resultado." style="background:var(--sec-bg);color:var(--sec-fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box">
+    <div style="height:1px;background:var(--acc)"></div>
+    <div style="display:flex;align-items:baseline;gap:40px;padding:52px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:44px;color:var(--acc)">2</div>
+      <div style="font-size:80px;font-weight:300;letter-spacing:-0.02em">Preliminares</div>
+    </div>
+    <div style="height:1px;background:var(--acc)"></div>
+  </section>
+
+  <section data-label="Notación" data-screen-label="07" data-speaker-notes="Solo la notación que usarás después. Si no aparece en un resultado, elimínala." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Notación y definiciones</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:47%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:76px 96px;display:flex;flex-direction:column;gap:36px;font-size:34px;line-height:1.55">
+      <div style="display:flex;gap:32px;align-items:baseline"><div style="min-width:210px;font-size:36px">\(G=(V,E)\)</div><div style="color:var(--fg70)">grafo de entrada, \(n=|V|\), \(m=|E|\).</div></div>
+      <div style="height:1px;background:var(--rule)"></div>
+      <div style="display:flex;gap:32px;align-items:baseline"><div style="min-width:210px;font-size:36px">\(OPT(I)\)</div><div style="color:var(--fg70)">valor óptimo de la instancia \(I\).</div></div>
+      <div style="height:1px;background:var(--rule)"></div>
+      <div style="display:flex;gap:32px;align-items:baseline"><div style="min-width:210px;font-size:36px">\(LP(I)\)</div><div style="color:var(--fg70)">valor de la relajación lineal; \(LP(I) \leq OPT(I)\).</div></div>
+      <div style="height:1px;background:var(--rule)"></div>
+      <div style="display:flex;gap:32px;align-items:baseline"><div style="min-width:210px;font-size:36px">\(\rho\)</div><div style="color:var(--fg70)">factor de aproximación del algoritmo propuesto.</div></div>
+    </div>
+  </section>
+
+  <section data-label="Sección 3" data-screen-label="08" data-speaker-notes="Transición: aquí está el aporte de la memoria." style="background:var(--sec-bg);color:var(--sec-fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box">
+    <div style="height:1px;background:var(--acc)"></div>
+    <div style="display:flex;align-items:baseline;gap:40px;padding:52px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:44px;color:var(--acc)">3</div>
+      <div style="font-size:80px;font-weight:300;letter-spacing:-0.02em">Resultados</div>
+    </div>
+    <div style="height:1px;background:var(--acc)"></div>
+  </section>
+
+  <section data-label="Resultado principal" data-screen-label="09" data-speaker-notes="Este es el slide central: enuncia el teorema, compara con el estado del arte y detente." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Resultado principal</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:60%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:76px 96px;display:flex;flex-direction:column;gap:44px">
+      <div style="background:rgba(235,129,27,.12);border-left:5px solid var(--acc);padding:40px 48px;border-radius:3px">
+        <div style="font-size:34px;font-weight:500;margin-bottom:18px;color:#a75a0f">Teorema</div>
+        <div style="font-size:36px;line-height:1.55;text-wrap:pretty">Existe un algoritmo \(\rho\)-apx. para —, con \(\rho = \frac{3}{2}\) y tiempo \(\mathcal{O}(n\log n)\).</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:22px;font-size:32px;line-height:1.5;color:var(--fg70)">
+        <div style="display:flex;gap:24px"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:13px"></div><div>Mejora el factor previo de — obtenido por —.</div></div>
+        <div style="display:flex;gap:24px"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:13px"></div><div>El análisis es ajustado: exhibimos una familia de instancias que alcanza \(\rho\).</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Idea de la demostración" data-screen-label="10" data-speaker-notes="Tres pasos, sin álgebra. Guarda los detalles para las preguntas." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Idea de la demostración</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:67%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:76px 96px;display:flex;flex-direction:column;gap:34px">
+      <div style="display:flex;gap:36px;align-items:flex-start;border-bottom:1px solid var(--rule);padding-bottom:30px">
+        <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:34px;color:var(--acc);min-width:56px">01</div>
+        <div style="font-size:34px;line-height:1.5"><span style="font-weight:400">Cota inferior.</span> <span style="color:var(--fg70)">Relajamos el problema y acotamos \(LP(I) \leq OPT(I)\).</span></div>
+      </div>
+      <div style="display:flex;gap:36px;align-items:flex-start;border-bottom:1px solid var(--rule);padding-bottom:30px">
+        <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:34px;color:var(--acc);min-width:56px">02</div>
+        <div style="font-size:34px;line-height:1.5"><span style="font-weight:400">Redondeo.</span> <span style="color:var(--fg70)">Construimos una solución factible desde la relajación, perdiendo a lo más un factor —.</span></div>
+      </div>
+      <div style="display:flex;gap:36px;align-items:flex-start">
+        <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:34px;color:var(--acc);min-width:56px">03</div>
+        <div style="font-size:34px;line-height:1.5"><span style="font-weight:400">Ajuste.</span> <span style="color:var(--fg70)">Combinando ambas cotas se obtiene \(ALG \leq \rho\ OPT\).</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Experimentos" data-screen-label="11" data-speaker-notes="Explica primero las columnas, después la tendencia. No leas la tabla celda por celda." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Resultados experimentales</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:73%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:70px 96px;display:flex;flex-direction:column;gap:32px">
+      <table style="width:100%;border-collapse:collapse;font-size:32px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">
+        <thead>
+          <tr style="border-top:2px solid var(--fg);border-bottom:1px solid var(--fg)">
+            <th style="text-align:left;padding:22px 16px;font-weight:500;font-family:'Fira Sans',sans-serif">Instancia</th>
+            <th style="text-align:right;padding:22px 16px;font-weight:500;font-family:'Fira Sans',sans-serif">\(n\)</th>
+            <th style="text-align:right;padding:22px 16px;font-weight:500;font-family:'Fira Sans',sans-serif">ALG</th>
+            <th style="text-align:right;padding:22px 16px;font-weight:500;font-family:'Fira Sans',sans-serif">Cota inf.</th>
+            <th style="text-align:right;padding:22px 16px;font-weight:500;font-family:'Fira Sans',sans-serif">Razón</th>
+            <th style="text-align:right;padding:22px 16px;font-weight:500;font-family:'Fira Sans',sans-serif">t [s]</th>
+          </tr>
+        </thead>
+        <tbody style="color:var(--fg70)">
+          <tr><td style="padding:20px 16px;font-family:'Fira Sans',sans-serif">familia A</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px;color:var(--fg)">—</td><td style="text-align:right;padding:20px 16px">—</td></tr>
+          <tr><td style="padding:20px 16px;font-family:'Fira Sans',sans-serif">familia B</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px;color:var(--fg)">—</td><td style="text-align:right;padding:20px 16px">—</td></tr>
+          <tr><td style="padding:20px 16px;font-family:'Fira Sans',sans-serif">familia C</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px;color:var(--fg)">—</td><td style="text-align:right;padding:20px 16px">—</td></tr>
+          <tr style="border-top:1px solid var(--rule)"><td style="padding:20px 16px;font-family:'Fira Sans',sans-serif;color:var(--fg)">peor caso</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px">—</td><td style="text-align:right;padding:20px 16px;color:var(--acc)">—</td><td style="text-align:right;padding:20px 16px">—</td></tr>
+        </tbody>
+      </table>
+      <div style="border-top:2px solid var(--fg);padding-top:22px;font-size:26px;color:var(--fg50);font-style:italic">Razón = ALG / cota inferior; en todas las instancias se mantuvo bajo \(\rho\).</div>
+    </div>
+  </section>
+
+  <section data-label="Sección 4" data-screen-label="12" data-speaker-notes="Transición: cierre." style="background:var(--sec-bg);color:var(--sec-fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box">
+    <div style="height:1px;background:var(--acc)"></div>
+    <div style="display:flex;align-items:baseline;gap:40px;padding:52px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:44px;color:var(--acc)">4</div>
+      <div style="font-size:80px;font-weight:300;letter-spacing:-0.02em">Conclusiones</div>
+    </div>
+    <div style="height:1px;background:var(--acc)"></div>
+  </section>
+
+  <section data-label="Conclusiones" data-screen-label="13" data-speaker-notes="Dos aportes, dos líneas futuras. Cierra con la más prometedora." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Conclusiones y trabajo futuro</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:87%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:76px 96px;display:grid;grid-template-columns:1fr 1px 1fr;gap:64px">
+      <div style="display:flex;flex-direction:column;gap:26px">
+        <div style="font-size:26px;text-transform:uppercase;letter-spacing:.16em;color:var(--acc)">Aportes</div>
+        <div style="display:flex;gap:22px;font-size:32px;line-height:1.5"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:13px"></div><div>Algoritmo \(\rho\)-apx. con análisis ajustado.</div></div>
+        <div style="display:flex;gap:22px;font-size:32px;line-height:1.5;color:var(--fg70)"><div style="width:12px;height:12px;background:var(--acc);flex:none;margin-top:13px"></div><div>Validación experimental en — familias de instancias.</div></div>
+      </div>
+      <div style="background:var(--rule)"></div>
+      <div style="display:flex;flex-direction:column;gap:26px">
+        <div style="font-size:26px;text-transform:uppercase;letter-spacing:.16em;color:var(--acc)">Trabajo futuro</div>
+        <div style="display:flex;gap:22px;font-size:32px;line-height:1.5"><div style="width:12px;height:12px;border:2px solid var(--acc);flex:none;margin-top:13px;box-sizing:border-box"></div><div>Extender el resultado al caso ponderado.</div></div>
+        <div style="display:flex;gap:22px;font-size:32px;line-height:1.5;color:var(--fg70)"><div style="width:12px;height:12px;border:2px solid var(--acc);flex:none;margin-top:13px;box-sizing:border-box"></div><div>¿Existe una cota de inaproximabilidad que iguale \(\rho\)?</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Referencias" data-screen-label="14" data-speaker-notes="Slide de respaldo; solo úsalo si preguntan por una referencia." style="background:var(--bg);color:var(--fg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column">
+    <div style="background:var(--fg);color:var(--bg);padding:36px 96px 32px;position:relative">
+      <div style="font-size:52px;font-weight:400;letter-spacing:-0.01em">Referencias</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:93%;background:var(--acc)"></div></div>
+    </div>
+    <div style="flex:1;padding:76px 96px;display:flex;flex-direction:column;gap:30px;font-size:28px;line-height:1.55;color:var(--fg70)">
+      <div style="display:flex;gap:28px"><div style="font-family:'Fira Mono',monospace;color:var(--acc);min-width:150px">[Aut26]</div><div>Autor, A. <span style="font-style:italic">Título del artículo</span>. Revista, 2026.</div></div>
+      <div style="display:flex;gap:28px"><div style="font-family:'Fira Mono',monospace;color:var(--acc);min-width:150px">[Eul36]</div><div>Euler, L. <span style="font-style:italic">Solutio problematis ad geometriam situs pertinentis</span>. 1736.</div></div>
+      <div style="display:flex;gap:28px"><div style="font-family:'Fira Mono',monospace;color:var(--acc);min-width:150px">[WS11]</div><div>Williamson, D. y Shmoys, D. <span style="font-style:italic">The Design of Approximation Algorithms</span>. Cambridge, 2011.</div></div>
+    </div>
+  </section>
+
+  <section data-label="Gracias" data-screen-label="15" data-speaker-notes="Agradece a guía, comisión y familia en una frase. Deja este slide durante las preguntas." style="background:var(--fg);color:var(--bg);font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:40px">
+    <div style="font-size:104px;font-weight:300;letter-spacing:-0.02em">¡Gracias!</div>
+    <div style="height:4px;width:200px;background:var(--acc)"></div>
+    <div style="font-size:36px;color:rgba(250,250,250,.72)">Preguntas</div>
+  </section>
+
+</x-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#eb811b&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#eb811b&quot;,&quot;#b68235&quot;,&quot;#23a6a6&quot;,&quot;#8f2d56&quot;],&quot;section&quot;:&quot;Tema&quot;},&quot;sectionPages&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;claro&quot;,&quot;options&quot;:[&quot;claro&quot;,&quot;oscuro&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tema&quot;},&quot;progressBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Tema&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() { this._theme(); this._math(0); }
+  componentDidUpdate() { this._theme(); }
+  _theme() {
+    const r = document.documentElement.style;
+    const acc = this.props.accent || '#eb811b';
+    r.setProperty('--acc', acc);
+    r.setProperty('--pb', (this.props.progressBar ?? true) ? '1' : '0');
+    const dark = (this.props.sectionPages || 'claro') === 'oscuro';
+    r.setProperty('--sec-bg', dark ? '#23373b' : '#fafafa');
+    r.setProperty('--sec-fg', dark ? '#fafafa' : '#23373b');
+  }
+  _math(tries) {
+    if (window.renderMathInElement) {
+      window.renderMathInElement(document.body, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false, ignoredTags: ['script', 'noscript', 'style', 'textarea']
+      });
+      const st = document.querySelector('deck-stage');
+      if (st && st._renderRail) setTimeout(() => { try { st._renderRail(true); } catch (e) {} }, 60);
+    } else if (tries < 60) {
+      setTimeout(() => this._math(tries + 1), 100);
+    }
+  }
+}
+</script>
+</body>
+</html>

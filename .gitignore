@@ -23,3 +23,7 @@ Red/dataset_RS.txt
 Red/dataset_nonQS.mat
 Red/dataset_nonQS.txt
 Red/DB_ssf_RS_500_c.mat
+
+# --- cache de exportacion de Claude Design: copias byte a byte de TESIS_FINAL.pdf ---
+Presentacion Final/uploads/
+Presentacion Final/memoria.pdf

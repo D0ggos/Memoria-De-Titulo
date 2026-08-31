@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&amp;family=Fira+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer="" src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer="" src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  :root{--A:#eb811b;--B:#16707f;--fg:#23373b;--bg:#fafafa;--pb:1}
+  html,body{margin:0;padding:0;background:#000}
+  a{color:var(--A);text-decoration:none;border-bottom:1px solid var(--A)}
+  a:hover{color:#a75a0f;border-bottom-color:#a75a0f}
+  .katex{font-size:1em}
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%" data-uneditable="">
+  <section data-label="1 Portada" data-screen-label="01" data-speaker-notes="Buenas tardes. Mi nombre es Pedro Pablo Muñoz Solano y vengo a defender mi memoria de título: el diseño de un meta-controlador con garantías de estabilidad para sistemas LPV politópicos. Agradezco al profesor guía Hugo Garcés, al co-guía Jonathan Palma y a la comisión. La exposición tiene cuatro partes: el marco teórico mínimo de control, el desarrollo con las dos contribuciones, los experimentos y las conclusiones. Parto por lo que motiva el problema." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 110px;box-sizing:border-box" data-om-slide-id="662b96c6">
+    <div style="display:flex;gap:56px;align-items:flex-start">
+      <image-slot id="escudo-udec" style="width:170px;height:200px;flex:none" shape="rect" fit="contain" placeholder="Escudo UdeC"></image-slot>
+      <div style="display:flex;flex-direction:column">
+        <div style="font-size:26px;letter-spacing:.2em;text-transform:uppercase;color:#5d6d70">Memoria de título · Ingeniería Civil Informática</div>
+        <div style="font-size:58px;line-height:1.14;font-weight:300;letter-spacing:-0.015em;margin-top:26px;max-width:1420px;text-wrap:pretty">Diseño de un meta-controlador con garantías de estabilidad mediante redes neuronales y capas de proyección para sistemas LPV politópicos</div>
+        <div style="height:5px;background:#eb811b;margin:38px 0 34px;max-width:1420px"></div>
+        <div style="font-size:38px;font-weight:400">Pedro Pablo Muñoz Solano</div>
+        <div style="display:grid;grid-template-columns:auto auto;gap:10px 56px;margin-top:30px;font-size:27px;color:#5d6d70;line-height:1.45">
+          <div>Profesor guía: <span style="color:#23373b">Hugo Garcés Hernández</span></div>
+          <div>Comisión: <span style="color:#23373b">Guillermo Cabrera Vives</span></div>
+          <div>Co-guía: <span style="color:#23373b">Jonathan Palma Olate</span></div>
+          <div><span style="color:#5d6d70">&nbsp;</span><span style="color:#23373b">Waldo Gálvez</span></div>
+        </div>
+        <div style="font-size:25px;color:#5d6d70;margin-top:40px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">Universidad de Concepción · Concepción, 2026</div>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:32px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">1 / 35</div>
+  </section>
+
+
+  <section data-label="2 Contexto y motivación" data-screen-label="02" data-speaker-notes="Estas técnicas se usan donde una planta cambia mientras opera: aerogeneradores, vehículos, procesos térmicos. Ahí la industria tiene una escalera de rigor, y en el peldaño alto está la síntesis con certificado matemático de estabilidad. El cuello de botella es que ese certificado se obtiene resolviendo un problema de optimización convexa por planta, con un solver que toma segundos o minutos. Si hay que hacerlo para miles de plantas, o en línea, ese costo se vuelve prohibitivo. De ahí viene la pregunta." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="7a180752">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Contexto y Motivación</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:7%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:34px 88px 40px;display:flex;flex-direction:column;gap:26px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:26px">
+          <div style="display:flex;flex-direction:column;gap:10px"><image-slot id="app-wind" style="width:100%;height:186px" shape="rect" placeholder="Aerogenerador"></image-slot><div style="font-size:24px;color:#5d6d70">Aerogenerador — control de paso según velocidad de viento</div></div>
+          <div style="display:flex;flex-direction:column;gap:10px"><image-slot id="app-susp" style="width:100%;height:186px" shape="rect" placeholder="Suspensión semiactiva"></image-slot><div style="font-size:24px;color:#5d6d70">Suspensión automotriz semiactiva</div></div>
+          <div style="display:flex;flex-direction:column;gap:10px"><image-slot id="app-robot" style="width:100%;height:186px" shape="rect" placeholder="Manipulador robótico"></image-slot><div style="font-size:24px;color:#5d6d70">Manipulador robótico</div></div>
+        </div>
+        <div style="font-size:24px;color:#5d6d70;font-style:italic">Aplicaciones LPV validadas experimentalmente — Hoffmann &amp; Werner, IEEE TCST 23(2), 2015.</div>
+      </div>
+      <div style="display:flex;gap:24px;align-items:flex-end">
+        <div style="flex:1;border-top:3px solid #b9c2c3;border-left:3px solid #b9c2c3;padding:20px 24px;height:132px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;gap:6px">
+          <div style="font-size:27px;font-weight:400">1 · Diseño LTI en un punto de operación</div>
+          <div style="font-size:24px;color:#5d6d70">Válido solo en la vecindad de ese punto.</div>
+        </div>
+        <div style="flex:1;border-top:3px solid #eb811b;border-left:3px solid #eb811b;padding:20px 24px;height:188px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;gap:6px">
+          <div style="font-size:27px;font-weight:400">2 · Gain scheduling</div>
+          <div style="font-size:24px;color:#5d6d70">Familia de controladores LTI interpolados según un parámetro medible. Práctica industrial.</div>
+          <div style="display:flex;gap:10px;align-items:flex-start;font-size:24px;color:#a75a0f"><span style="font-size:24px">⚠</span><span>solo garantiza estabilidad si el parámetro varía lentamente (Shamma &amp; Athans, 1992)</span></div>
+        </div>
+        <div style="flex:1;border-top:3px solid #23373b;border-left:3px solid #23373b;padding:20px 24px;height:240px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;gap:6px">
+          <div style="font-size:27px;font-weight:400">3 · Síntesis LMI sobre el polítopo</div>
+          <div style="font-size:24px;color:#5d6d70">Garantía válida para variación arbitrariamente rápida del parámetro.</div>
+        </div>
+      </div>
+      <div style="border-left:5px solid #eb811b;background:#f1eee9;padding:22px 30px;font-size:29px;line-height:1.4">Esa garantía se obtiene resolviendo un problema de programación semidefinida con métodos de punto interior, <span style="font-weight:400">fuera de línea</span>. Si la planta cambia, hay que resolverlo de nuevo.</div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">2 / 35</div>
+  </section>
+
+
+  <section data-label="3 Pregunta" data-screen-label="03" data-speaker-notes="La pregunta central es si una red neuronal puede sintetizar el controlador y su certificado en una sola pasada hacia adelante, sin perder la garantía. La abro en tres subpreguntas: si el método se puede extender de una planta fija a una familia politópica, si una sola red puede servir a plantas de topología distinta, y qué se paga por mantener la garantía. Cada subpregunta tiene una contribución asociada, y volveré a estas tres columnas al cerrar." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="e1cec12a">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">¿Puede una red neuronal sintetizar el controlador y su certificado en una sola pasada?</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:11%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:40px 88px 34px;display:flex;flex-direction:column;gap:34px">
+      <div style="border-top:2px solid #16707f;border-bottom:2px solid #16707f;padding:26px 34px;font-size:29px;line-height:1.45;font-style:italic;text-wrap:pretty">¿Es posible construir una arquitectura neuronal que, dado un sistema LPV politópico descrito por sus vértices, sintetice en una única pasada hacia adelante un certificado de Lyapunov y una ganancia de realimentación que satisfagan <span style="font-style:normal;font-weight:400">por construcción</span> las desigualdades matriciales de estabilidad cuadrática robusta, y que generalice a topologías de polítopo no observadas durante el entrenamiento?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:34px;flex:1">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">SP1</div>
+          <div style="font-size:26px;line-height:1.4;color:#5d6d70">¿Puede extenderse la formulación mono-sistema a la estabilización robusta politópica sin modificar el algoritmo de proyección?</div>
+          <div style="margin-top:auto;border-top:3px solid #16707f;padding-top:16px;font-size:28px;font-weight:400;color:#16707f">Construcción bloque-diagonal</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">SP2</div>
+          <div style="font-size:26px;line-height:1.4;color:#5d6d70">¿Qué codificación permite que una sola red sirva a sistemas de distinta cardinalidad de vértices y actuadores?</div>
+          <div style="margin-top:auto;border-top:3px solid #16707f;padding-top:16px;font-size:28px;font-weight:400;color:#16707f">Codificador invariante de dos ejes</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">SP3</div>
+          <div style="font-size:26px;line-height:1.4;color:#5d6d70">¿Qué precio en factibilidad y tiempo tiene reemplazar el solver por una capa de proyección truncada?</div>
+          <div style="margin-top:auto;border-top:3px solid #16707f;padding-top:16px;font-size:28px;font-weight:400;color:#16707f">Evaluación DR vs. solver de referencia y fuera de distribución</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:44px;align-items:center;font-size:24px;color:#5d6d70;border-top:1px solid #d3d9da;padding-top:20px">
+        <div style="display:flex;gap:12px;align-items:center"><div style="width:30px;height:5px;background:#eb811b"></div>lo heredado — teoría clásica, formulación original de LMI-Net, resultados de terceros</div>
+        <div style="display:flex;gap:12px;align-items:center"><div style="width:30px;height:5px;background:#16707f"></div>lo propio — extensión politópica, generalización, hallazgos experimentales</div>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">3 / 35</div>
+  </section>
+
+
+  <section data-label="§ Marco teórico" data-screen-label="04" data-speaker-notes="Para que las contribuciones se entiendan necesito cinco láminas de control. Serán cinco minutos: qué es un sistema lineal, qué cambia cuando la dinámica varía, cómo se certifica esa variación, el truco algebraico que lo hace convexo, y qué criterio elige entre las infinitas soluciones." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box" data-om-slide-id="7d11b55a">
+    <div style="height:1px;background:#eb811b"></div>
+    <div style="display:flex;align-items:baseline;gap:44px;padding:54px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:48px;color:#eb811b">1</div>
+      <div style="font-size:78px;font-weight:300;letter-spacing:-0.02em">Marco teórico</div>
+    </div>
+    <div style="height:1px;background:#eb811b"></div>
+    
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">4 / 35</div>
+  </section>
+
+  <section data-label="4 Sistema LTI" data-screen-label="05" data-speaker-notes="Empiezo por lo más simple. Un sistema lineal invariante en el tiempo tiene una matriz A y una matriz B constantes: A dice cómo evoluciona el estado por sí solo y B cómo entra la acción de control. Realimentar significa elegir una sola matriz K, y con eso el lazo cerrado queda gobernado por A más B K. En este caso el criterio de estabilidad es exacto: basta que todos los autovalores tengan parte real negativa, es decir que la abscisa espectral sea negativa, como muestra el gráfico. Todo lo que sigue es la pérdida de ese lujo." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="30d7f2a5">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Un sistema LTI: dinámica constante</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:19%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:36px 88px 34px;display:flex;flex-direction:column;gap:26px"><div style="display:grid;grid-template-columns:1.15fr 1fr;gap:52px">
+        <div style="display:flex;flex-direction:column;gap:22px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Dinámica y realimentación</div>
+          <div style="font-size:32px">\(\dot x(t) = A\,x(t) + B\,u(t)\)</div>
+          <div style="font-size:26px;line-height:1.45;color:#5d6d70">\(x \in \mathbb{R}^{n_x}\) es el estado, \(u \in \mathbb{R}^{n_u}\) la acción de control. <span style="color:#23373b">LTI</span> = lineal e invariante en el tiempo: \(A\) y \(B\) son matrices <span style="color:#23373b">constantes</span>.</div>
+          <div style="height:1px;background:#d3d9da"></div>
+          <div style="font-size:26px;line-height:1.45">Realimentación estática de estado \(u = Kx\); el lazo cerrado queda</div>
+          <div style="font-size:32px">\(\dot x = (A + BK)\,x, \qquad x(t) = e^{(A+BK)t}x(0)\)</div>
+          <div style="font-size:26px;line-height:1.45;color:#5d6d70">Diseñar el controlador es <span style="color:#23373b">elegir una sola matriz \(K\)</span>.</div>
+          <div style="height:1px;background:#d3d9da"></div>
+          <div style="font-size:26px;line-height:1.45">Criterio exacto de estabilidad: \(x(t) \to 0\) para todo \(x(0)\) si y solo si \(A+BK\) es <span style="font-weight:400">Hurwitz</span>,</div>
+          <div style="font-size:30px">\(a(A+BK) \;=\; \max_i \operatorname{Re}\lambda_i(A+BK) \;&lt;\; 0\)</div>
+        </div><div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Abscisa espectral</div>
+          <svg viewBox="0 0 520 300" style="width:100%;height:300px">
+            <rect x="0" y="0" width="520" height="300" fill="#f2f4f4"></rect>
+            <rect x="0" y="0" width="260" height="300" fill="#e7ecec"></rect>
+            <line x1="260" y1="16" x2="260" y2="284" stroke="#5d6d70" stroke-width="1.5"></line>
+            <line x1="24" y1="150" x2="500" y2="150" stroke="#5d6d70" stroke-width="1.5"></line>
+            <circle cx="150" cy="86" r="7" fill="#16707f"></circle><circle cx="150" cy="214" r="7" fill="#16707f"></circle>
+            <circle cx="86" cy="150" r="7" fill="#16707f"></circle>
+            <text x="24" y="40" font-family="Fira Sans" font-size="20" fill="#23373b">todos los modos</text><text x="24" y="70" font-family="Fira Sans" font-size="20" fill="#23373b">decaen</text>
+            <text x="300" y="40" font-family="Fira Sans" font-size="20" fill="#a75a0f">al menos uno</text><text x="300" y="70" font-family="Fira Sans" font-size="20" fill="#a75a0f">explota</text>
+            <text x="268" y="176" font-family="Fira Sans" font-size="20" fill="#5d6d70">Re λ = 0</text>
+            <text x="160" y="112" font-family="Fira Mono" font-size="20" fill="#16707f">λ₁</text>
+            <text x="160" y="236" font-family="Fira Mono" font-size="20" fill="#16707f">λ̄₁</text>
+            <text x="96" y="140" font-family="Fira Mono" font-size="20" fill="#16707f">λ₂</text>
+          </svg>
+          
+          
+        </div>
+        
+      </div></div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">5 / 35</div>
+  </section>
+
+  
+
+  <section data-label="5 Sistemas LPV" data-screen-label="06" data-speaker-notes="Porque en un sistema LPV la dinámica cambia mientras el sistema opera: A y B dependen de un parámetro eta que varía en el tiempo. Eta es medible pero no elegible: es la velocidad del viento, un ángulo, una carga. Dos cosas importan. Primero, no suponemos que varíe despacio: puede saltar tan rápido como quiera. Y segundo, por eso mismo mirar los autovalores instante a instante no sirve; ese análisis congelado puede darme estable en cada instante y el sistema divergir igual, porque las plantas de cada instante no comparten direcciones propias y el giro de la base le bombea energía al estado. Y sin embargo tengo que diseñar un solo controlador para todas." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="17e7069e">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Un sistema LPV: la dinámica cambia mientras el sistema opera</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:22%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:40px 88px 34px;display:grid;grid-template-columns:1fr 1.15fr;gap:56px;align-items:center">
+      <div style="display:flex;flex-direction:column;gap:28px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Modelo</div>
+        <div style="font-size:34px">\(\dot x = A(\eta(t))\,x + B(\eta(t))\,u\)</div>
+        <div style="font-size:27px;line-height:1.5">\(\eta(t)\) es un parámetro <span style="font-weight:400">medible pero no elegible</span>: velocidad de viento, ángulo, carga.</div>
+        <div style="height:1px;background:#d3d9da"></div>
+        <div style="display:flex;gap:18px;font-size:27px;line-height:1.45"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:12px"></div><div>Su variación puede ser <span style="font-weight:400">arbitrariamente rápida</span>.</div></div>
+        <div style="display:flex;gap:18px;font-size:27px;line-height:1.45"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:12px"></div><div>Mirar los autovalores instante a instante es un <span style="font-weight:400">análisis congelado</span>: puede ser estable en cada instante y divergir igual.</div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <svg viewBox="0 0 720 400" style="width:100%;height:400px">
+          <rect x="0" y="0" width="720" height="400" fill="#f2f4f4"></rect>
+          <line x1="60" y1="150" x2="690" y2="150" stroke="#b9c2c3" stroke-width="1.5"></line>
+          <text x="60" y="44" font-family="Fira Sans" font-size="24" fill="#5d6d70">η(t) — el parámetro que mido</text>
+          <path d="M60,120 C130,52 180,132 240,74 C300,20 330,138 400,110 C470,84 500,44 560,96 C610,140 650,66 690,88" fill="none" stroke="#16707f" stroke-width="3"></path>
+          <g stroke="#8a9698" stroke-width="1" stroke-dasharray="4 5"><line x1="160" y1="96" x2="160" y2="214"></line><line x1="400" y1="110" x2="400" y2="214"></line><line x1="620" y1="92" x2="620" y2="214"></line></g>
+          <g fill="#16707f"><circle cx="160" cy="96" r="7"></circle><circle cx="400" cy="110" r="7"></circle><circle cx="620" cy="92" r="7"></circle></g>
+          <g fill="#fff" stroke="#b9c2c3" stroke-width="2"><rect x="92" y="214" width="136" height="92"></rect><rect x="332" y="214" width="136" height="92"></rect><rect x="552" y="214" width="136" height="92"></rect></g>
+          <g font-family="Fira Mono" font-size="26" fill="#23373b" text-anchor="middle"><text x="160" y="270">A(η(t₁))</text><text x="400" y="270">A(η(t₂))</text><text x="620" y="270">A(η(t₃))</text></g>
+          <text x="375" y="356" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#23373b">una planta distinta en cada instante,</text>
+          <text x="375" y="388" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#a75a0f">un solo controlador para todas</text>
+        </svg>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">6 / 35</div>
+  </section>
+
+  <section data-label="6 Representación politópica" data-screen-label="07" data-speaker-notes="La representación politópica es lo que hace tratable ese problema. En lugar de una familia infinita, digo que A de eta es una combinación convexa de N matrices conocidas: los vértices. Eta vive en el simplex, y la planta real es siempre algún punto interior del polítopo que esos vértices generan. Un LTI es simplemente el caso N igual a uno. La consecuencia práctica es la que anoto abajo: necesito un certificado que valga simultáneamente en todo el polítopo, no uno por punto." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="17e7069f">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">La representación politópica encierra esa familia infinita en \(N\) matrices conocidas</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:26%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:40px 88px 34px;display:grid;grid-template-columns:1fr 1.15fr;gap:56px;align-items:center">
+      <div style="display:flex;flex-direction:column;gap:26px">
+        <div style="font-size:30px">\(A(\eta) = \sum_{i=1}^{N} \eta_i A_i, \qquad B(\eta) = \sum_{i=1}^{N} \eta_i B_i\)</div>
+        <div style="font-size:28px">\(\eta(t) \in \Delta = \{\eta_i \ge 0,\ \textstyle\sum_i \eta_i = 1\}\)</div>
+        <div style="height:1px;background:#d3d9da"></div>
+        <div style="display:flex;gap:18px;font-size:27px;line-height:1.45"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:12px"></div><div>Los pares \((A_i, B_i)\) son los <span style="font-weight:400">vértices</span>: matrices conocidas y en número finito.</div></div>
+        <div style="display:flex;gap:18px;font-size:27px;line-height:1.45"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:12px"></div><div>Un LTI es el caso \(N = 1\): un polítopo de un solo punto.</div></div>
+        <div style="display:flex;gap:18px;font-size:27px;line-height:1.45"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:12px"></div><div>Hace falta un certificado válido <span style="font-weight:400">simultáneamente</span> en todo el polítopo.</div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <svg viewBox="0 0 700 380" style="width:100%;height:380px">
+          <rect x="0" y="0" width="700" height="380" fill="#f2f4f4"></rect>
+          <circle cx="120" cy="185" r="8" fill="#eb811b"></circle>
+          <text x="120" y="228" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#23373b">LTI: N = 1</text>
+          <text x="120" y="262" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#5d6d70">un solo punto</text>
+          <polygon points="470,70 590,135 590,245 470,310 350,245 350,135" fill="rgba(22,112,127,.07)" stroke="#16707f" stroke-width="2.5"></polygon>
+          <path d="M400,195 C440,140 500,245 540,180 C570,132 520,116 470,160" fill="none" stroke="#16707f" stroke-width="2" stroke-dasharray="7 6"></path>
+          <g fill="#16707f"><circle cx="470" cy="70" r="7"></circle><circle cx="590" cy="135" r="7"></circle><circle cx="590" cy="245" r="7"></circle><circle cx="470" cy="310" r="7"></circle><circle cx="350" cy="245" r="7"></circle><circle cx="350" cy="135" r="7"></circle></g>
+          <text x="470" y="52" text-anchor="middle" font-family="Fira Mono" font-size="25" fill="#16707f">(A₁,B₁) … (A₆,B₆)</text>
+          <text x="470" y="346" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#23373b">LPV: A(η) recorre la región</text>
+        </svg>
+        <div style="font-size:24px;color:#5d6d70;font-style:italic;text-align:center">Cada punto del plano es una matriz distinta; la línea punteada es una historia posible de \(\eta(t)\).</div>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">7 / 35</div>
+  </section>
+
+  <section data-label="7 Estabilidad cuadrática" data-screen-label="08" data-speaker-notes="Ese certificado es una función de energía cuadrática, V de x igual a x transpuesta P x, con un único P para toda la familia. Exigir que V decrezca para todo eta del simplex son infinitas restricciones. Pero A de eta es afín en eta, así que la derivada de V también lo es, y el máximo de una función afín sobre un simplex se alcanza en un vértice: las infinitas restricciones colapsan a N desigualdades, una por vértice. Esa reducción es exacta, no conservadora. Lo que sí es suficiente y no necesario es la elección de un P común. La figura lo dice mejor: aunque la dinámica cambie, la trayectoria cruza las curvas de nivel siempre hacia adentro." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="04267518">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Una única V(x) cuadrática certifica el polítopo completo</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:30%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:32px 88px 30px;display:flex;flex-direction:column;gap:26px"><div style="display:grid;grid-template-columns:1.12fr 1fr;gap:50px">
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;gap:18px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px;font-size:26px">1</div><div style="font-size:26px;line-height:1.45">Se propone una <span style="font-weight:400">función de energía</span> cuadrática, la misma para todo el polítopo:<div style="margin-top:10px;font-size:30px">\(V(x) = x^{\top}Px, \qquad P \succ 0\)</div></div></div>
+          <div style="display:flex;gap:18px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px;font-size:26px">2</div><div style="font-size:26px;line-height:1.45">Estabilidad robusta \(\iff\) \(V\) decrece para <span style="font-weight:400">todo</span> \(\eta \in \Delta\):<div style="margin-top:10px;font-size:29px">\(\dot V = x^{\top}\!\big(A(\eta)^{\top}P + PA(\eta)\big)x &lt; 0\)</div><div style="margin-top:8px;color:#5d6d70">— una restricción por cada punto del polítopo: infinitas.</div></div></div>
+          <div style="display:flex;gap:18px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px;font-size:26px">3</div><div style="font-size:26px;line-height:1.45">Pero \(A(\eta)\) es <span style="font-weight:400">afín</span> en \(\eta\), así que \(\dot V\) también lo es: su máximo sobre el simplex se alcanza en un vértice. Las infinitas restricciones colapsan a \(N\):<div style="margin-top:10px;font-size:30px"><span><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>A</mi><mi>i</mi><mi mathvariant="normal">⊤</mi></msubsup><mi>P</mi><mo>+</mo><mi>P</mi><msub><mi>A</mi><mi>i</mi></msub><mo>+</mo><mn>2</mn><mi>α</mi><mi>P</mi><mo>≺</mo><mn>0</mn><mo separator="true">,</mo><mspace width="1em"></mspace><mi>i</mi><mo>=</mo><mn>1</mn><mo separator="true">,</mo><mo>…</mo><mo separator="true">,</mo><mi>N</mi></mrow><annotation encoding="application/x-tex">A_i^{\top}P + PA_i + 2\alpha P \prec 0, \quad i = 1,\dots,N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 1.1078em; vertical-align: -0.2587em;"></span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 0.8491em;"><span class="" style="top: -2.4413em; margin-left: 0em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span><span class="" style="top: -3.063em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">⊤</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.2587em;"><span class=""></span></span></span></span></span></span><span class="mord mathnormal" style="margin-right: 0.1389em;">P</span><span class="mspace" style="margin-right: 0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right: 0.2222em;"></span></span><span class="base"><span class="strut" style="height: 0.8333em; vertical-align: -0.15em;"></span><span class="mord mathnormal" style="margin-right: 0.1389em;">P</span><span class="mord"><span class="mord mathnormal">A</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 0.3117em;"><span class="" style="top: -2.55em; margin-left: 0em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.15em;"><span class=""></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.2222em;"></span></span><span class="base"><span class="mrel">≺</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 0.854em; vertical-align: -0.1944em;"></span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 1em;"></span><span class="mspace" style="margin-right: 0.1667em;"></span><span class="mord mathnormal">i</span><span class="mspace" style="margin-right: 0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.2778em;"></span></span><span class="base"><span class="strut" style="height: 0.8778em; vertical-align: -0.1944em;"></span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.1667em;"></span><span class="minner">…</span><span class="mspace" style="margin-right: 0.1667em;"></span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.1667em;"></span><span class="mord mathnormal" style="margin-right: 0.109em;">N</span></span></span></span></span></div></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Un solo elipsoide para toda la familia</div>
+          <svg viewBox="0 0 560 300" style="width:100%;height:300px">
+            <rect x="0" y="0" width="560" height="300" fill="#f2f4f4"></rect>
+            <ellipse cx="280" cy="150" rx="230" ry="118" fill="none" stroke="#16707f" stroke-width="2.5"></ellipse>
+            <ellipse cx="280" cy="150" rx="165" ry="85" fill="none" stroke="#16707f" stroke-width="1.6" stroke-dasharray="6 6"></ellipse>
+            <ellipse cx="280" cy="150" rx="98" ry="50" fill="none" stroke="#16707f" stroke-width="1.6" stroke-dasharray="6 6"></ellipse>
+            <ellipse cx="280" cy="150" rx="38" ry="20" fill="none" stroke="#16707f" stroke-width="1.6" stroke-dasharray="6 6"></ellipse>
+            <path d="M492,182 C420,96 350,236 300,120 C270,52 214,206 196,132 C184,84 316,178 282,148" fill="none" stroke="#eb811b" stroke-width="3"></path>
+            <circle cx="492" cy="182" r="7" fill="#eb811b"></circle><circle cx="282" cy="148" r="6" fill="#23373b"></circle>
+            <text x="440" y="216" font-family="Fira Sans" font-size="22" fill="#a75a0f">x(0)</text>
+            <text x="40" y="40" font-family="Fira Sans" font-size="22" fill="#16707f">curvas de nivel de V(x) = xᵀPx</text>
+          </svg>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70;font-style:italic">Aunque la dinámica cambie de vértice en vértice, la trayectoria cruza las curvas de nivel siempre hacia adentro.</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 44px;border-top:1px solid #d3d9da;padding-top:20px">
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div>Un \(P\) común es lo que compra la garantía bajo variación <span style="font-weight:400">arbitrariamente rápida</span> del parámetro.</div></div>
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div>La reducción del continuo a \(N\) desigualdades de vértice es <span style="font-weight:400">exacta</span>, no conservadora.</div></div>
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"></div>
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"></div>
+      </div></div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">8 / 35</div>
+  </section>
+
+  <section data-label="8 Congruencia" data-screen-label="09" data-speaker-notes="Falta un problema. Al cerrar el lazo con u igual a K x aparece el producto P B K: dos incógnitas multiplicándose, y la desigualdad deja de ser convexa. La salida es un cambio de variables: se define Q como la inversa de P y Y como K por Q, y se multiplica por congruencia a ambos lados. Lo que queda es afín en Q y en Y, es decir convexo, y de la solución se recuperan K y P directamente. Quiero enfatizar que esto es una equivalencia, no una relajación: no se pierde ninguna solución. Esta es la única cadena algebraica de la exposición, y es la desigualdad que la red va a tener que satisfacer." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="626c78b4">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Un cambio de variables convierte un problema no convexo en uno convexo, sin perder soluciones</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:33%;background:#eb811b"></div></div>
+    </div><div style="flex:1;padding:36px 88px 34px;display:flex;flex-direction:column;gap:30px">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1.15fr;gap:22px;align-items:stretch">
+        
+        <div style="border-top:3px solid #eb811b;padding:20px 0 0;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:26px;font-weight:400">1 · Certificado común</div>
+          <div style="font-size:27px">\(V(x)=x^{\top}Px,\ P\succ 0\)</div>
+          <div style="font-size:27px">\(A_i^{\top}P + PA_i \prec 0\)</div>
+          <div style="font-size:24px;color:#5d6d70;margin-top:auto">convexo en \(P\); el mismo \(P\) en los \(N\) vértices</div>
+        </div><div style="display:flex;align-items:center;font-size:34px;color:#5d6d70">→</div>
+        <div style="border-top:3px solid #eb811b;padding:20px 0 0;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:26px;font-weight:400">2 · Se cierra el lazo</div>
+          <div style="font-size:27px">\(u = Kx\)</div>
+          <div style="font-size:27px">\(A_i^{\top}P + PA_i + \textcolor{#c0392b}{PB_iK} + \textcolor{#c0392b}{K^{\top}B_i^{\top}P} \prec 0\)</div>
+          <div style="font-size:24px;color:#c0392b;margin-top:auto">producto de dos incógnitas ⇒ desigualdad bilineal, no convexa</div>
+        </div>
+        <div style="display:flex;align-items:center;font-size:34px;color:#5d6d70">→</div>
+        <div style="border-top:3px solid #16707f;padding:20px 0 0;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:26px;font-weight:400">3 · Congruencia y cambio de variable</div>
+          <div style="font-size:27px">\(Q = P^{-1},\quad Y = KQ\)</div>
+          <div style="font-size:29px">\(A_iQ + QA_i^{\top} + B_iY + Y^{\top}B_i^{\top} + 2\alpha Q \prec 0\)</div>
+          <div style="font-size:24px;color:#16707f">afín en \((Q,Y)\) ⇒ convexo</div>
+          <div style="font-size:24px;color:#5d6d70;margin-top:auto">se recupera \(K = YQ^{-1}\), \(P = Q^{-1}\)</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 44px;border-top:1px solid #d3d9da;padding-top:22px">
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:11px"></div><div>Un único \(P\) común a todos los vértices garantiza estabilidad bajo variación arbitrariamente rápida del parámetro.</div></div>
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"></div>
+        
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"></div>
+      </div>
+    </div>
+    
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">9 / 35</div>
+  </section><section data-label="9 Criterios de desempeño" data-screen-label="10" data-speaker-notes="Un último punto antes del desarrollo. Los pares Q, Y que satisfacen esas desigualdades son infinitos: estabilizar es solo el mínimo. Lo que elige una solución concreta es el criterio de desempeño que se usa como función objetivo: qué tan rápido decae la energía, qué tan chico es el elipsoide donde el estado puede divagar, cuánto esfuerzo se le exige al actuador, o el desempeño H infinito, que queda fuera de esta memoria por la base de datos y no por la formulación. Retengan esto, porque las seis funciones de pérdida que compararé después son exactamente estos criterios, y su comparación es uno de los resultados." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="5ffeec5d">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Estabilizar es el mínimo: el criterio de desempeño decide cuál solución se elige</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:37%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:34px 88px 30px;display:flex;flex-direction:column;gap:26px"><div style="font-size:28px;line-height:1.45;max-width:1560px">Entre todos los pares \((P, K)\) que satisfacen las desigualdades de estabilidad hay <span style="font-weight:400">infinitas</span> soluciones. Un <span style="font-weight:400">criterio de desempeño</span> es la métrica que cuantifica la calidad de la respuesta y, como función objetivo, escoge una de ellas.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 40px">
+        <div style="border-top:3px solid #eb811b;padding-top:20px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:28px;font-weight:400">Tasa de decaimiento \(\alpha\)</div>
+          <div style="font-size:25px;line-height:1.4;color:#5d6d70">Qué tan rápido se disipa la energía tras una perturbación: \(\|x(t)\| \le \sqrt{\kappa(Q)}\, e^{-\alpha t}\|x(0)\|\). Entra como el término \(2\alpha Q\) de la LMI.</div>
+        </div>
+        <div style="border-top:3px solid #eb811b;padding-top:20px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:28px;font-weight:400">Volumen del elipsoide de contención</div>
+          <div style="font-size:25px;line-height:1.4;color:#5d6d70">El elipsoide \(\mathcal{E}(P)\) acota la zona donde el estado divaga ante perturbaciones; se minimiza su volumen maximizando \(\det P\) (en la práctica, minimizando \(-\log\det Q\)).</div>
+        </div>
+        <div style="border-top:3px solid #eb811b;padding-top:20px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:28px;font-weight:400">Esfuerzo de control \(\|K\|\)</div>
+          <div style="font-size:25px;line-height:1.4;color:#5d6d70">Magnitud de la ganancia: limitarla evita la saturación de los actuadores y la amplificación del ruido de medición.</div>
+        </div>
+        <div style="border-top:3px solid #eb811b;padding-top:20px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:28px;font-weight:400">Desempeño \(H_\infty\) (\(\gamma\))</div>
+          <div style="font-size:25px;line-height:1.4;color:#5d6d70">Peor amplificación de energía desde una perturbación \(w(t)\) hacia la salida de interés. Queda fuera de esta memoria por la base de datos, no por la formulación.</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 40px;border-top:1px solid #d3d9da;padding-top:20px">
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"></div>
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"></div>
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div>Las seis funciones de pérdida del estudio instancian estos criterios; su comparación es uno de los resultados.</div></div>
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"></div>
+      </div></div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">10 / 35</div>
+  </section>
+
+
+  <section data-label="§ Desarrollo" data-screen-label="11" data-speaker-notes="Con eso cierro la teoría y paso a lo propio. Seis láminas: el punto de partida heredado, cómo funciona su capa de proyección, sus límites, y las dos contribuciones de esta memoria." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box" data-om-slide-id="dad9a98d">
+    <div style="height:1px;background:#eb811b"></div>
+    <div style="display:flex;align-items:baseline;gap:44px;padding:54px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:48px;color:#eb811b">2</div>
+      <div style="font-size:78px;font-weight:300;letter-spacing:-0.02em">Desarrollo</div>
+    </div>
+    <div style="height:1px;background:#eb811b"></div>
+    
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">11 / 35</div>
+  </section>
+
+  <section data-label="10 LMI-Net" data-screen-label="12" data-speaker-notes="El punto de partida es LMI-Net, de Tang, Goertzen y Azizan. La idea es elegante: la red no resuelve el problema convexo, solo propone. Recibe los datos de la planta aplanados en un vector, los pasa por un perceptrón de dos capas ocultas de 64 neuronas con ReLU, y produce una propuesta cruda de Q y de Y. El entrenamiento es auto-supervisado: no hay etiquetas de un solver, la señal viene de evaluar la propia restricción y el criterio de desempeño sobre la salida ya proyectada. Y ahí está el punto clave: un perceptrón es un aproximador sin restricciones, su salida cruda puede violar las desigualdades. La garantía no la da la red; la da la capa que viene después." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="dbed5510">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">LMI-Net: la red propone un certificado, la capa de proyección lo repara</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:44%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:flex;flex-direction:column;gap:26px"><div style="display:flex;gap:12px;align-items:stretch;font-size:24px">
+        <div style="flex:1;border:2px solid #b9c2c3;padding:18px 16px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.35">Vértices del sistema<br><span style="color:#5d6d70">\((A_i, B_i)_{i=1}^{N}\)</span></div>
+        <div style="display:flex;align-items:center;color:#5d6d70;font-size:30px">→</div>
+        <div style="flex:1.1;border:2px solid #eb811b;padding:18px 16px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.35">Red neuronal<br><span style="color:#5d6d70">\(\xi_{net} \mapsto \hat y\)</span></div>
+        <div style="display:flex;align-items:center;color:#5d6d70;font-size:30px">→</div>
+        <div style="flex:1;border:2px solid #b9c2c3;padding:18px 16px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.35">Propuesta cruda<br>\((\hat Q, \hat Y)\)</div>
+        <div style="display:flex;align-items:center;color:#5d6d70;font-size:30px">→</div>
+        <div style="flex:1.15;border:2px solid #eb811b;background:#f6efe6;padding:18px 16px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.35;font-weight:400">Capa de proyección<br>Douglas–Rachford</div>
+        <div style="display:flex;align-items:center;color:#5d6d70;font-size:30px">→</div>
+        <div style="flex:.95;border:2px solid #b9c2c3;padding:18px 16px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.35">\((Q, Y)\) factible</div>
+        <div style="display:flex;align-items:center;color:#5d6d70;font-size:30px">→</div>
+        <div style="flex:.75;border:2px solid #23373b;padding:18px 16px;display:flex;align-items:center;justify-content:center;text-align:center">\(K = YQ^{-1}\)</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:44px">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">El backbone de la formulación original</div>
+          <svg viewBox="0 0 860 330" style="width:100%;height:330px">
+            <rect x="0" y="0" width="860" height="330" fill="#f2f4f4"></rect>
+            <rect x="20" y="70" width="132" height="190" fill="#fff" stroke="#b9c2c3" stroke-width="2"></rect>
+            <text x="86" y="52" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#23373b">entrada ξ_net</text>
+            <text x="86" y="130" text-anchor="middle" font-family="Fira Mono" font-size="27" fill="#5d6d70">vec(A₁…A_N)</text>
+            <text x="86" y="166" text-anchor="middle" font-family="Fira Mono" font-size="27" fill="#5d6d70">vec(B₁…B_N)</text>
+            <text x="86" y="206" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#a75a0f">aplanada,</text>
+            <text x="86" y="242" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#a75a0f">dim. fija</text>
+            <g fill="none" stroke="#d3d9da" stroke-width="1">
+              <path d="M152,165 L262,70"></path><path d="M152,165 L262,120"></path><path d="M152,165 L262,170"></path><path d="M152,165 L262,220"></path><path d="M152,165 L262,262"></path>
+              <path d="M302,70 L412,70"></path><path d="M302,70 L412,170"></path><path d="M302,120 L412,120"></path><path d="M302,120 L412,220"></path><path d="M302,170 L412,70"></path><path d="M302,170 L412,262"></path><path d="M302,220 L412,120"></path><path d="M302,220 L412,220"></path><path d="M302,262 L412,170"></path><path d="M302,262 L412,262"></path>
+              <path d="M452,70 L580,140"></path><path d="M452,120 L580,140"></path><path d="M452,170 L580,140"></path><path d="M452,220 L580,200"></path><path d="M452,262 L580,200"></path><path d="M452,170 L580,200"></path>
+            </g>
+            <g fill="#fff" stroke="#eb811b" stroke-width="2.5">
+              <circle cx="282" cy="70" r="19"></circle><circle cx="282" cy="120" r="19"></circle><circle cx="282" cy="170" r="19"></circle><circle cx="282" cy="220" r="19"></circle><circle cx="282" cy="262" r="19"></circle>
+              <circle cx="432" cy="70" r="19"></circle><circle cx="432" cy="120" r="19"></circle><circle cx="432" cy="170" r="19"></circle><circle cx="432" cy="220" r="19"></circle><circle cx="432" cy="262" r="19"></circle>
+            </g>
+            <text x="282" y="42" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#a75a0f">64 · ReLU</text>
+            <text x="432" y="42" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#a75a0f">64 · ReLU</text>
+            <text x="357" y="300" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#5d6d70">MLP, 2 capas ocultas — sin normalización interna</text>
+            <rect x="580" y="106" width="150" height="68" fill="#fff" stroke="#b9c2c3" stroke-width="2"></rect>
+            <text x="655" y="148" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#23373b">Q̂ = sym(·)</text>
+            <rect x="580" y="166" width="150" height="68" fill="#fff" stroke="#b9c2c3" stroke-width="2"></rect>
+            <text x="655" y="208" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#23373b">Ŷ</text>
+            <path d="M730,170 L800,170" stroke="#5d6d70" stroke-width="2"></path>
+            <text x="812" y="140" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#a75a0f">a la</text>
+            <text x="812" y="176" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#a75a0f">capa</text>
+            <text x="812" y="212" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#a75a0f">DR</text>
+          </svg>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="border:1px solid #d3d9da;padding:18px 24px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:25px;font-weight:400">Entrenamiento auto-supervisado</div>
+            <div style="font-size:24px;line-height:1.4;color:#5d6d70">No hay etiquetas de un solver: la señal proviene de evaluar la propia restricción y el criterio de desempeño sobre la salida ya proyectada. Adam, 400 épocas.</div>
+          </div>
+          <div style="border:1px solid #d3d9da;padding:18px 24px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:25px;font-weight:400">La salida cruda no es factible</div>
+            <div style="font-size:24px;line-height:1.4;color:#5d6d70">Un MLP es un aproximador sin restricciones: \((\hat Q, \hat Y)\) puede violar \(Q \succ 0\) y las LMI de vértice. Reparar eso es el trabajo de la capa siguiente.</div>
+          </div>
+          <div style="margin-top:auto;border-left:5px solid #eb811b;background:#f1eee9;padding:20px 24px;font-size:26px;line-height:1.4">Formulación original: Tang, Goertzen &amp; Azizan. La red <span style="font-weight:400">propone</span>; la garantía la da la proyección.</div>
+        </div>
+      </div></div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">12 / 35</div>
+  </section>
+
+  <section data-label="11 Capa de proyección" data-screen-label="13" data-speaker-notes="Antes de los dos conjuntos conviene decir de dónde salen, porque no vienen dados: hay que construirlos. La incógnita es un vector, la concatenación de Q e Y, pero la restricción no es sobre ese vector, es sobre matrices que deben ser semidefinidas positivas. Así que se levanta el espacio: se introduce una segunda variable x que contiene las restricciones apiladas y evaluadas, x igual a L por y más c. Como F es afín en y, esa L se construye columna a columna, evaluando en los vectores unitarios. Recién ahí aparecen los dos conjuntos, y ambos viven en el par y-x. El primero, el subespacio afín, exige que x sea de verdad la LMI evaluada en y; es la restricción de consistencia. El segundo es el producto de conos y exige que los bloques de x sean semidefinidos positivos, sin mencionar a y. Ser factible es estar en la intersección. ¿Por qué levantar? Porque proyectar sobre cada uno por separado es barato, una descomposición espectral en un caso y unos mínimos cuadrados en el otro, mientras que proyectar sobre la intersección es el problema semidefinido completo. Ese es el truco de los métodos de división. Douglas–Rachford alterna esas dos proyecciones hasta converger. Y el detalle que hace todo esto útil es el término de anclaje: con él, el punto fijo no es un punto factible cualquiera, es la proyección euclidiana de la propuesta de la red sobre el conjunto factible. Como todo son operaciones diferenciables, se puede entrenar a través de la capa." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="46e154b3">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Capa de Proyección</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:48%;background:#eb811b"></div></div>
+    </div><div style="flex:1;padding:30px 88px 30px;display:flex;flex-direction:column;gap:26px"><div style="display:grid;grid-template-columns:1fr 1.05fr;gap:46px">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Dos conjuntos convexos</div>
+          <div style="display:flex;gap:24px;align-items:center;border:1px solid #d3d9da;padding:18px 22px">
+            <svg viewBox="0 0 320 190" style="width:100%;max-width:380px;height:auto;flex:none">
+              <path d="M20,166 L160,26 L300,166 Z" fill="rgba(35,55,59,.10)" stroke="#23373b" stroke-width="2"></path>
+              <text x="66" y="158" font-family="Fira Sans" font-size="26" fill="#23373b">C₂ : cono ⪰ 0</text>
+              <line x1="8" y1="72" x2="312" y2="140" stroke="#eb811b" stroke-width="2.5"></line>
+              <text x="16" y="58" font-family="Fira Sans" font-size="26" fill="#a75a0f">C₁ : Ly = c</text>
+              <circle cx="238" cy="42" r="6" fill="#5d6d70"></circle>
+              <text x="252" y="36" font-family="Fira Sans" font-size="26" fill="#5d6d70">ŷ</text>
+              <path d="M234,50 C214,72 200,92 190,112" stroke="#16707f" stroke-width="2" fill="none" stroke-dasharray="5 5"></path>
+              <circle cx="188" cy="116" r="7" fill="#16707f"></circle>
+              <text x="200" y="126" font-family="Fira Sans" font-size="26" fill="#16707f">y*</text>
+            </svg>
+            <div style="font-size:24px;line-height:1.45;color:#5d6d70">La restricción se parte en el <span style="color:#23373b">cono de matrices semidefinidas positivas</span> y el <span style="color:#a75a0f">subespacio afín</span> imagen del mapa de restricción. Proyectar sobre cada uno es fácil; lo que se busca es un punto de la <span style="color:#23373b">intersección</span>.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Iteración de Douglas–Rachford, con anclaje</div>
+            <div style="background:#eceff0;padding:18px 24px;font-family:'Fira Mono',monospace;font-size:24px;line-height:1.65;white-space:pre-wrap">para k = 0 … K−1:
+    ȳ  ← (2σ·ŷ + y_k) / (2σ + 1)      # anclaje a la propuesta
+    y_{k+1} ← Π_C₁( ȳ − Lᵀ(c − x_k) )  # subespacio afín
+    x_{k+1} ← Π_C₂( 2·L y_{k+1} − x_k ) # cono ⪰ 0</div>
+          </div>
+        </div><div style="display:flex;flex-direction:column;gap:16px">
+          <div style="border:1px solid #d3d9da;padding:18px 24px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:25px;font-weight:400">\(\Pi_{\mathcal{C}_2}\) — cono semidefinido</div>
+            <div style="font-size:24px;line-height:1.4;color:#5d6d70">Descomposición espectral y truncamiento de los autovalores negativos: \(X = U\Lambda U^{\top} \mapsto U \max(\Lambda, 0) U^{\top}\).</div>
+          </div>
+          <div style="border:1px solid #d3d9da;padding:18px 24px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:25px;font-weight:400">\(\Pi_{\mathcal{C}_1}\) — subespacio afín</div>
+            <div style="font-size:24px;line-height:1.4;color:#5d6d70">Mínimos cuadrados sobre \(\{y : Ly = c\}\); la factorización se calcula una vez por topología y se reutiliza en todas las iteraciones.</div>
+          </div>
+          <div style="border-left:5px solid #16707f;background:#eaf1f2;padding:18px 24px;font-size:25px;line-height:1.45">Con el término de anclaje \(\|y - \hat y\|^2\) en el objetivo, el punto fijo es <span style="font-weight:400">la proyección euclidiana de la propuesta de la red sobre el conjunto factible</span> — no un punto factible arbitrario.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid #d3d9da;padding-top:16px">
+            <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Por qué hay dos conjuntos: el levantamiento</div>
+            <div style="font-size:24px;line-height:1.45;color:#5d6d70">La incógnita \(y=(\operatorname{vech}Q,\operatorname{vec}Y)\) es un vector, pero la restricción vive sobre <span style="color:#23373b">matrices</span>. Se introduce una segunda variable con las restricciones apiladas,</div>
+            <div style="background:#eceff0;padding:12px 22px;font-family:'Fira Mono',monospace;font-size:24px;text-align:center">x = L y + c ,   dim x = (N+1)·n<sub>x</sub>²</div>
+            <div style="font-size:24px;line-height:1.45;color:#5d6d70">y los dos conjuntos viven en el par \((y,x)\): <span style="color:#a75a0f">C₁</span> exige que \(x\) sea de verdad la LMI evaluada en \(y\); <span style="color:#23373b">C₂</span> exige que sus bloques sean PSD y no menciona a \(y\). <span style="color:#23373b">L y c se construyen columna a columna</span> aprovechando que \(F\) es afín en \(y\).</div>
+          </div>
+        </div>
+        
+      </div></div>
+    
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">13 / 35</div>
+  </section>
+
+  <section data-label="12 Limitaciones" data-screen-label="14" data-speaker-notes="Ahora los límites de esa formulación, que son el mapa de lo que sigue. Fue propuesta y validada sobre un solo sistema LTI, es decir un polítopo de un vértice. Entrena una red por planta. Tiene dimensiones de entrada fijas. Y adopta la diferenciación implícita como método de gradiente por defecto. Cada una de esas cuatro líneas se convierte en una extensión, y las dos primeras son las contribuciones que vienen ahora. Los propios autores señalan la posibilidad del apilamiento, pero no la desarrollan." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="19db93d3">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Propuesta original contra extensión</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:52%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:44px 88px 34px;display:flex;flex-direction:column;gap:32px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 60px;font-size:28px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#a75a0f;padding-bottom:16px;border-bottom:2px solid #eb811b">Limitación del setup original</div>
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#16707f;padding-bottom:16px;border-bottom:2px solid #16707f">Hacia dónde se extiende</div>
+        <div style="padding:22px 0;border-bottom:1px solid #e0e5e5;line-height:1.35">Un único sistema LTI: \(N = 1\) vértice</div>
+        <div style="padding:22px 0;border-bottom:1px solid #e0e5e5;line-height:1.35;color:#16707f">Estabilización robusta sobre polítopos de \(N\) vértices</div>
+        <div style="padding:22px 0;border-bottom:1px solid #e0e5e5;line-height:1.35">Una red entrenada por planta</div>
+        <div style="padding:22px 0;border-bottom:1px solid #e0e5e5;line-height:1.35;color:#16707f">Un meta-controlador único para plantas de distinta topología</div>
+        <div style="padding:22px 0;border-bottom:1px solid #e0e5e5;line-height:1.35">Dimensiones fijas de entrada</div>
+        <div style="padding:22px 0;border-bottom:1px solid #e0e5e5;line-height:1.35;color:#16707f">Invariancia frente a la cardinalidad de vértices y de actuadores</div>
+        <div style="padding:22px 0;line-height:1.35">Diferenciación implícita como método por defecto</div>
+        <div style="padding:22px 0;line-height:1.35;color:#16707f">Evaluación sistemática frente al desenrollado</div>
+      </div>
+      <div style="display:flex;gap:18px;font-size:27px;line-height:1.4;color:#5d6d70;border-top:1px solid #d3d9da;padding-top:24px"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:11px"></div><div>Los autores originales señalan la posibilidad del apilamiento.</div></div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">14 / 35</div>
+  </section>
+
+
+  <section data-label="13 Bloque-diagonal" data-screen-label="15" data-speaker-notes="Primera contribución, y es la metodológica central. Se apoya en un hecho elemental: una matriz bloque-diagonal es semidefinida positiva si y solo si cada bloque lo es. Entonces, para cada vértice tomo su desigualdad de síntesis, la que derivé en la lámina de congruencia, y la escribo como residuo: F superíndice i, evaluado con el Q y el Y comunes. Eso es una matriz simétrica de tamaño n x por n x, y la desigualdad de ese vértice se cumple exactamente cuando ese bloque es semidefinido positivo. Apilo los N bloques en la diagonal y agrego un último bloque, Q menos épsilon por la identidad, que impone la positividad del certificado con un margen contra el colapso. El resultado es una sola restricción matricial de tamaño N más uno por n x. Lo importante: la capa de proyección sigue viendo exactamente lo mismo que antes, un cono y un subespacio afín, y como proyecta bloque a bloque el costo crece lineal en el número de vértices y no cúbico. Para dimensionarlo: con cinco vértices y orden cinco, una descomposición monolítica de treinta por treinta cuesta unas treinta y seis veces más que las seis de cinco por cinco que hacemos nosotros. Y conviene decir cuál era el caso base del paper: para un sistema LTI único la pila tiene exactamente dos bloques, el de Lyapunov y el de positividad. El solver original ya sabía proyectar pilas de bloques; lo que hicimos fue darle la pila correcta. Extensión de alcance sin modificación algorítmica." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="e5449b74">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">El apilamiento bloque-diagonal</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:56%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:28px 88px 30px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;align-items:center;gap:22px;border-top:1px solid #d3d9da;border-bottom:1px solid #d3d9da;padding:18px 0">
+        <div style="font-size:23px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70;writing-mode:vertical-rl;transform:rotate(180deg);align-self:stretch;text-align:center">De cada vértice a su bloque</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:center">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#5d6d70">vértice i</div>
+          <div style="border:2px solid #b9c2c3;padding:12px 22px;font-size:26px">\((A_i, B_i)\)</div>
+        </div>
+        <div style="font-size:30px;color:#5d6d70">→</div>
+        <div style="flex:2.4;display:flex;flex-direction:column;gap:6px;align-items:center">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#5d6d70">residuo de su LMI, con el \((Q,Y)\) común</div>
+          <div style="border:2px solid #16707f;padding:12px 22px;font-size:25px">\(F^{(i)} = -\big(A_iQ + QA_i^{\top} + B_iY + Y^{\top}B_i^{\top} + 2\alpha Q\big)\)</div>
+        </div>
+        <div style="font-size:30px;color:#5d6d70">→</div>
+        <div style="flex:1.25;display:flex;flex-direction:column;gap:6px;align-items:center">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#5d6d70">matriz simétrica nₓ×nₓ</div>
+          <div style="background:rgba(22,112,127,.16);border:2px solid #16707f;padding:12px 26px;font-size:26px;color:#16707f">bloque \(i\) de la diagonal</div>
+        </div>
+        <div style="font-size:30px;color:#5d6d70">→</div>
+        <div style="flex:1;font-size:25px;line-height:1.35;color:#5d6d70">La LMI de ese vértice se cumple \(\iff\) <span style="color:#16707f">\(F^{(i)} \succeq 0\)</span>.</div>
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <svg viewBox="0 0 660 400" style="width:100%;height:360px">
+          <rect x="70" y="20" width="360" height="360" fill="#f2f4f4" stroke="#8a9698" stroke-width="1.5"></rect>
+          <rect x="82" y="32" width="76" height="76" fill="rgba(22,112,127,.16)" stroke="#16707f" stroke-width="2"></rect>
+          <text x="120" y="76" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#16707f">F⁽¹⁾</text>
+          <rect x="158" y="108" width="76" height="76" fill="rgba(22,112,127,.16)" stroke="#16707f" stroke-width="2"></rect>
+          <text x="196" y="152" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#16707f">F⁽²⁾</text>
+          <text x="272" y="228" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#5d6d70">⋱</text>
+          <rect x="272" y="222" width="76" height="76" fill="rgba(22,112,127,.16)" stroke="#16707f" stroke-width="2"></rect>
+          <text x="310" y="266" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#16707f">F⁽ᴺ⁾</text>
+          <rect x="348" y="298" width="70" height="70" fill="rgba(235,129,27,.16)" stroke="#eb811b" stroke-width="2"></rect>
+          <text x="383" y="340" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#a75a0f">Q−εI</text>
+          <text x="250" y="120" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#c3cacb">0</text>
+          <text x="160" y="300" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#c3cacb">0</text>
+          <line x1="70" y1="392" x2="430" y2="392" stroke="#8a9698" stroke-width="1"></line>
+          <text x="250" y="386" text-anchor="middle" font-family="Fira Mono" font-size="20" fill="#5d6d70">(N+1)·nₓ</text>
+          <text x="446" y="56" font-family="Fira Sans" font-size="20" fill="#16707f">N bloques nₓ×nₓ,</text>
+          <text x="446" y="84" font-family="Fira Sans" font-size="20" fill="#16707f">uno por vértice</text>
+          <text x="446" y="322" font-family="Fira Sans" font-size="20" fill="#a75a0f">positividad del</text>
+          <text x="446" y="352" font-family="Fira Sans" font-size="20" fill="#a75a0f">certificado y margen</text>
+          <text x="446" y="382" font-family="Fira Sans" font-size="20" fill="#a75a0f">contra el colapso</text>
+        </svg>
+        <div style="font-size:25px;text-align:center">\(F(y) \succeq 0 \iff\) cada bloque \(\succeq 0\)</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:26px">
+        <div style="display:flex;gap:18px;font-size:28px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:12px"></div><div>Las \(N\) condiciones de vértice y la positividad del certificado se apilan en <span style="font-weight:400">una sola restricción matricial</span>.</div></div>
+        <div style="display:flex;gap:18px;font-size:28px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:12px"></div><div>La capa de proyección sigue viendo lo mismo: un cono semidefinido y un subespacio afín.</div></div>
+        <div style="display:flex;gap:18px;font-size:28px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:12px"></div><div>El costo crece <span style="font-weight:400">lineal</span> en el número de vértices, no cúbico.</div></div>
+        <div style="border-left:5px solid #16707f;background:#eaf1f2;padding:20px 26px;font-size:28px;line-height:1.4">Contribución metodológica central: <span style="font-weight:400">extensión de alcance sin modificación algorítmica</span>.</div>
+      </div>
+    </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">15 / 35</div>
+  </section>
+
+
+  <section data-label="14 Ejemplo N = 2" data-screen-label="16" data-speaker-notes="Veámoslo con números, porque es la lámina que convence de que la construcción es mecánica. Dos vértices, orden dos, un actuador. El vértice dos no es Hurwitz, tiene traza positiva: hay que estabilizar ambos con un solo par Q, Y. A la izquierda anoto qué se evalúa exactamente: de cada bloque, su autovalor mínimo. La restricción se cumple si y solo si el menor de todos ellos es mayor o igual a cero. Al centro, la propuesta cruda de la red: dos de los tres bloques tienen autovalor mínimo negativo, menos cero coma cuarenta y cuatro y menos cero coma ochenta y dos, así que la propuesta es inadmisible. Pasa por la capa: Douglas–Rachford itera, y en cada iteración hace tres descomposiciones espectrales de dos por dos, una por bloque, no una de seis por seis. A la derecha la salida proyectada: los tres autovalores mínimos son positivos, la restricción se cumple. Recupero la ganancia K, y si verifico el lazo cerrado en cada vértice los autovalores están en el semiplano izquierdo. Y por el certificado común, también lo está toda combinación convexa entre ellos." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="d6e20ce6">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">El apilamiento en un ejemplo: N = 2 vértices, nₓ = 2, un solo \((Q,Y)\)</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:59%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:26px 88px 26px;display:grid;grid-template-columns:.78fr 1.22fr;gap:46px">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Datos</div>
+        <div style="font-size:26px;line-height:1.8">\(A_1 = \begin{bmatrix} 0 &amp; 1 \\ -2 &amp; -0.5\end{bmatrix},\quad A_2 = \begin{bmatrix} 0 &amp; 1 \\ -1 &amp; 0.3\end{bmatrix}\)</div>
+        <div style="font-size:26px;line-height:1.8">\(B_1 = B_2 = \begin{bmatrix} 0 \\ 1\end{bmatrix}, \quad \alpha = 0.01, \quad \epsilon = 10^{-3}\)</div>
+        <div style="font-size:24px;color:#5d6d70;line-height:1.4">El vértice 2 no es Hurwitz (traza \(+0.3\)): hay que estabilizar ambos con un solo \((Q, Y)\).</div>
+        <div style="height:1px;background:#d3d9da"></div>
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Qué se evalúa</div>
+        <div style="font-size:25px;line-height:1.45">De cada bloque, su <span style="font-weight:400">autovalor mínimo</span>. La restricción se cumple si y solo si</div>
+        <div style="font-size:26px">\(\min_{\text{bloques}} \lambda_{\min} \;\ge\; 0\)</div>
+        <div style="font-size:24px;color:#5d6d70;line-height:1.4">Basta un autovalor negativo en un bloque para que la propuesta sea inadmisible.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:center">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#a75a0f">Propuesta cruda de la red \(\hat y\)</div>
+            <div style="font-size:24px;color:#5d6d70">\(\hat Y = \begin{bmatrix} 0.20 &amp; -0.40\end{bmatrix}\)</div>
+            <div style="position:relative;height:288px;background:#f2f4f4;border:1px solid #b9c2c3;box-sizing:border-box">
+              <div style="position:absolute;left:3%;top:3%;width:36%;height:30%;box-sizing:border-box;background:rgba(192,57,43,.12);border:2px solid #c0392b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:24px;color:#c0392b">F⁽¹⁾</div><div style="font-family:'Fira Mono',monospace;font-size:24px;color:#c0392b;font-feature-settings:'tnum'">λ = −0.44</div></div>
+              <div style="position:absolute;left:32%;top:35%;width:36%;height:30%;box-sizing:border-box;background:rgba(192,57,43,.12);border:2px solid #c0392b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:24px;color:#c0392b">F⁽²⁾</div><div style="font-family:'Fira Mono',monospace;font-size:24px;color:#c0392b;font-feature-settings:'tnum'">λ = −0.82</div></div>
+              <div style="position:absolute;left:61%;top:67%;width:36%;height:30%;box-sizing:border-box;background:rgba(235,129,27,.14);border:2px solid #eb811b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:24px;color:#a75a0f">Q − εI</div><div style="font-family:'Fira Mono',monospace;font-size:24px;color:#a75a0f;font-feature-settings:'tnum'">λ = +0.50</div></div>
+              <div style="position:absolute;right:9%;top:11%;font-size:26px;color:#c3cacb">0</div>
+              <div style="position:absolute;left:9%;bottom:11%;font-size:26px;color:#c3cacb">0</div>
+            </div>
+            <div style="font-size:24px;color:#c0392b;text-align:center">dos bloques violados ⇒ no factible</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:170px">
+            <div style="font-size:24px;color:#16707f;text-align:center;line-height:1.3">capa DR</div>
+            <svg viewBox="0 0 170 120" style="width:170px;height:120px">
+              <path d="M6,60 L150,60" stroke="#16707f" stroke-width="2.5"></path>
+              <path d="M138,50 L152,60 L138,70" fill="none" stroke="#16707f" stroke-width="2.5"></path>
+              <path d="M22,60 C34,34 52,34 64,60 C76,86 94,86 106,60 C114,42 126,44 134,56" fill="none" stroke="#16707f" stroke-width="2" stroke-dasharray="6 5"></path>
+              <circle cx="22" cy="60" r="6" fill="#c0392b"></circle>
+              <circle cx="136" cy="58" r="6" fill="#16707f"></circle>
+              <text x="85" y="112" text-anchor="middle" font-family="Fira Sans" font-size="21" fill="#5d6d70">K iteraciones</text>
+            </svg>
+            <div style="font-size:23px;color:#5d6d70;text-align:center;line-height:1.35">tres espectrales de 2×2, una por bloque</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#16707f">Salida proyectada \(y^{*}\)</div>
+            <div style="font-size:24px;color:#5d6d70">\(Y = \begin{bmatrix} 0.76 &amp; -1.50\end{bmatrix}\)</div>
+            <div style="position:relative;height:288px;background:#f2f4f4;border:1px solid #b9c2c3;box-sizing:border-box">
+              <div style="position:absolute;left:3%;top:3%;width:36%;height:30%;box-sizing:border-box;background:rgba(22,112,127,.14);border:2px solid #16707f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:24px;color:#16707f">F⁽¹⁾</div><div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f;font-feature-settings:'tnum'">λ = +0.98</div></div>
+              <div style="position:absolute;left:32%;top:35%;width:36%;height:30%;box-sizing:border-box;background:rgba(22,112,127,.14);border:2px solid #16707f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:24px;color:#16707f">F⁽²⁾</div><div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f;font-feature-settings:'tnum'">λ = +0.55</div></div>
+              <div style="position:absolute;left:61%;top:67%;width:36%;height:30%;box-sizing:border-box;background:rgba(22,112,127,.14);border:2px solid #16707f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:24px;color:#16707f">Q − εI</div><div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f;font-feature-settings:'tnum'">λ = +0.50</div></div>
+              <div style="position:absolute;right:9%;top:11%;font-size:26px;color:#c3cacb">0</div>
+              <div style="position:absolute;left:9%;bottom:11%;font-size:26px;color:#c3cacb">0</div>
+            </div>
+            <div style="font-size:24px;color:#16707f;text-align:center">los tres ⪰ 0 ⇒ \(F(y^{*}) \succeq 0\)</div>
+          </div>
+        </div>
+        <div style="border-left:5px solid #16707f;background:#eaf1f2;padding:16px 24px;display:flex;gap:40px;align-items:center">
+          <div style="font-size:25px;line-height:1.45">\(K = YQ^{-1} = \begin{bmatrix} 0.013 &amp; -1.493\end{bmatrix}\)</div>
+          <div style="font-size:24px;line-height:1.45">Lazo cerrado — vértice 1: \(-0.997 \pm 0.997j\); vértice 2: \(-0.597 \pm 0.794j\). <span style="color:#5d6d70">Y con ellos, toda combinación convexa.</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">16 / 35</div>
+  </section>
+
+  <section data-label="15 Arquitecturas invariantes" data-screen-label="17" data-speaker-notes="Segunda contribución: hacer que una sola red sirva a plantas de topología distinta. El obstáculo es la línea base aplanada: al vectorizar la entrada, su dimensión depende de la topología, así que una red entrenada con dos vértices no puede procesar tres, y cubrir la malla de la base de datos exigiría mantener veintiocho redes. Pero la estructura del problema regala dos simetrías. Reordenar los vértices describe el mismo sistema y admite el mismo certificado. Y reetiquetar los actuadores describe la misma planta física: el lazo cerrado muestra que el certificado no cambia y que las filas de la ganancia simplemente se permuten con ellos. La segunda arquitectura explota la primera simetría con un esquema Deep Sets: una ficha por vértice, una red phi de pesos compartidos que la procesa, y un promedio sobre vértices donde el orden literalmente muere; el resumen resultante tiene dimensión fija y un decodificador rho lo convierte en la propuesta. Eso ya procesa cualquier número de vértices sin reentrenar, pero el número de actuadores sigue fijo porque va dentro de la ficha. La tercera arquitectura, la propuesta, arregla eso: la ficha ya no es un vértice, es un par vértice-actuador, la dinámica completa del vértice junto a una sola columna de B. Así la ficha solo depende del orden del sistema. La agregación ocurre en dos ejes: primero promedio sobre vértices, que da un resumen por actuador, y después promedio sobre actuadores, que da el resumen global. Y el cabezal se divide según cómo actúa cada simetría: el certificado Q se produce desde el resumen global, y la fila j de Y desde el resumen del actuador j concatenado con el contexto global. Como la misma red evalúa todos los actuadores, Q queda invariante e Y equivariante, exactamente la transformación que el álgebra exige. El resultado es que veintiocho redes se reducen a cuatro, una por orden." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="a6d60447">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Las arquitecturas que hacen invariante al meta-controlador</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:63%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:22px 88px 52px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:34px;align-items:center;border-bottom:1px solid #d3d9da;padding-bottom:12px">
+        <div style="display:flex;gap:14px;align-items:baseline"><span style="font-family:'Fira Mono',monospace;font-size:24px;color:#5d6d70">01</span><span style="font-size:26px;color:#5d6d70">Aplanada (vanilla): entrada de dimensión fija — no admite otra topología.</span></div>
+        <div style="flex:1;height:1px;background:#e0e5e5"></div>
+        
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:16px;align-items:baseline"><span style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">02</span><span style="font-size:28px;font-weight:400">Codificador de vértices — Deep Sets</span><span style="font-size:25px;color:#5d6d70">invariante al orden y a la cardinalidad \(N\)</span></div>
+        <svg viewBox="0 0 1880 300" style="width:100%;height:300px">
+          <rect x="0" y="0" width="1880" height="300" fill="#f2f4f4"></rect>
+          <text x="14" y="30" font-family="Fira Sans" font-size="25" fill="#5d6d70">una ficha por vértice</text>
+          <g fill="#fff" stroke="#b9c2c3" stroke-width="2"><rect x="14" y="48" width="330" height="56"></rect><rect x="14" y="120" width="330" height="56"></rect><rect x="14" y="224" width="330" height="56"></rect></g>
+          <g font-family="Fira Mono" font-size="25" fill="#23373b"><text x="32" y="84">x₁ = [vec(A₁), vec(B₁)]</text><text x="32" y="156">x₂ = [vec(A₂), vec(B₂)]</text><text x="32" y="260">xₙ = [vec(Aₙ), vec(Bₙ)]</text></g>
+          <text x="179" y="208" text-anchor="middle" font-family="Fira Sans" font-size="28" fill="#8a9698">⋮</text>
+          <g stroke="#8a9698" stroke-width="2" fill="none"><path d="M344,76 L432,110"></path><path d="M344,148 L432,150"></path><path d="M344,252 L432,190"></path></g>
+          <rect x="436" y="60" width="150" height="180" fill="#fff" stroke="#eb811b" stroke-width="2.5"></rect>
+          <text x="511" y="142" text-anchor="middle" font-family="Fira Sans" font-size="38" fill="#a75a0f">φ</text>
+          <text x="511" y="182" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#a75a0f">pesos</text>
+          <text x="511" y="212" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#a75a0f">compartidos</text>
+          <path d="M586,150 L676,150" stroke="#8a9698" stroke-width="2"></path>
+          <circle cx="736" cy="150" r="58" fill="#fff" stroke="#16707f" stroke-width="2.5"></circle>
+          <text x="736" y="160" text-anchor="middle" font-family="Fira Mono" font-size="27" fill="#16707f">∑ / N</text>
+          <text x="736" y="248" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#16707f">promedio sobre vértices</text>
+          <text x="736" y="278" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#16707f">— aquí muere el orden</text>
+          <path d="M794,150 L874,150" stroke="#8a9698" stroke-width="2"></path>
+          <rect x="878" y="118" width="116" height="64" fill="#fff" stroke="#b9c2c3" stroke-width="2"></rect>
+          <text x="936" y="160" text-anchor="middle" font-family="Fira Mono" font-size="27" fill="#23373b">z</text>
+          <text x="936" y="104" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#5d6d70">resumen de dim. fija</text>
+          <path d="M994,150 L1074,150" stroke="#8a9698" stroke-width="2"></path>
+          <rect x="1078" y="110" width="130" height="80" fill="#fff" stroke="#eb811b" stroke-width="2.5"></rect>
+          <text x="1143" y="162" text-anchor="middle" font-family="Fira Sans" font-size="36" fill="#a75a0f">ρ</text>
+          <path d="M1208,150 L1288,150" stroke="#8a9698" stroke-width="2"></path>
+          <rect x="1292" y="114" width="200" height="72" fill="#fff" stroke="#23373b" stroke-width="2"></rect>
+          <text x="1392" y="160" text-anchor="middle" font-family="Fira Sans" font-size="27" fill="#23373b">ŷ = (Q̂, Ŷ)</text>
+          <line x1="1540" y1="66" x2="1540" y2="234" stroke="#16707f" stroke-width="2"></line>
+          <text x="1564" y="126" font-family="Fira Sans" font-size="25" fill="#16707f">procesa cualquier N</text>
+          <text x="1564" y="162" font-family="Fira Sans" font-size="25" fill="#16707f">sin reentrenar; pero</text>
+          <text x="1564" y="198" font-family="Fira Sans" font-size="25" fill="#5d6d70">nᵤ sigue fijo</text>
+        </svg>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:16px;align-items:baseline"><span style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">03</span><span style="font-size:28px;font-weight:400">Codificador de actuadores en dos ejes</span><span style="font-size:25px;color:#5d6d70">añade la equivariancia en \(n_u\); cabezal dividido</span></div>
+        <svg viewBox="-70 0 1950 330" style="width:100%;height:330px">
+          <rect x="-70" y="0" width="1950" height="330" fill="#eaf1f2"></rect>
+          <text x="-56" y="32" font-family="Fira Sans" font-size="25" fill="#16707f">una ficha por (vértice, actuador): tᵢⱼ = [vec(Aᵢ), bᵢⱼ]</text>
+          <text x="96" y="78" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#5d6d70">actuador 1</text>
+          <text x="232" y="78" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#5d6d70">actuador 2</text>
+          <g fill="#fff" stroke="#b9c2c3" stroke-width="2"><rect x="34" y="96" width="124" height="64"></rect><rect x="170" y="96" width="124" height="64"></rect><rect x="34" y="180" width="124" height="64"></rect><rect x="170" y="180" width="124" height="64"></rect></g>
+          <g font-family="Fira Mono" font-size="26" fill="#23373b" text-anchor="middle"><text x="96" y="136">t₁₁</text><text x="232" y="136">t₁₂</text><text x="96" y="220">t₂₁</text><text x="232" y="220">t₂₂</text></g>
+          <text x="20" y="136" text-anchor="end" font-family="Fira Sans" font-size="24" fill="#5d6d70">vért. 1</text>
+          <text x="20" y="220" text-anchor="end" font-family="Fira Sans" font-size="24" fill="#5d6d70">vért. 2</text>
+          <g stroke="#8a9698" stroke-width="2" fill="none"><path d="M294,128 L360,140"></path><path d="M294,212 L360,190"></path></g>
+          <rect x="364" y="96" width="140" height="148" fill="#fff" stroke="#eb811b" stroke-width="2.5"></rect>
+          <text x="434" y="166" text-anchor="middle" font-family="Fira Sans" font-size="38" fill="#a75a0f">φ</text>
+          <text x="434" y="206" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#a75a0f">compartida</text>
+          <text x="434" y="276" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#5d6d70">la ficha solo depende de nₓ</text>
+          <path d="M504,170 L568,170" stroke="#8a9698" stroke-width="2"></path>
+          <text x="660" y="58" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#16707f">eje 1 — promedio sobre vértices</text>
+          <g fill="#fff" stroke="#16707f" stroke-width="2.5"><rect x="572" y="96" width="170" height="64"></rect><rect x="572" y="180" width="170" height="64"></rect></g>
+          <g font-family="Fira Mono" font-size="26" fill="#16707f" text-anchor="middle"><text x="657" y="136">u₁</text><text x="657" y="220">u₂</text></g>
+          <text x="657" y="276" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#16707f">resumen por actuador</text>
+          <g stroke="#8a9698" stroke-width="2" fill="none"><path d="M742,128 L806,158"></path><path d="M742,212 L806,182"></path></g>
+          <text x="890" y="58" text-anchor="middle" font-family="Fira Sans" font-size="25" fill="#16707f">eje 2 — promedio sobre actuadores</text>
+          <rect x="810" y="138" width="150" height="64" fill="#fff" stroke="#16707f" stroke-width="2.5"></rect>
+          <text x="885" y="180" text-anchor="middle" font-family="Fira Mono" font-size="26" fill="#16707f">z</text>
+          <text x="885" y="232" text-anchor="middle" font-family="Fira Sans" font-size="24" fill="#16707f">resumen global</text>
+          <path d="M960,158 C1010,158 1010,96 1060,96" stroke="#8a9698" stroke-width="2" fill="none"></path>
+          <path d="M960,186 C1010,186 1010,240 1060,240" stroke="#8a9698" stroke-width="2" fill="none" stroke-dasharray="6 5"></path>
+          <path d="M742,238 C860,300 960,300 1060,258" stroke="#8a9698" stroke-width="2" fill="none"></path>
+          <rect x="1064" y="64" width="150" height="66" fill="#fff" stroke="#eb811b" stroke-width="2.5"></rect>
+          <text x="1139" y="108" text-anchor="middle" font-family="Fira Sans" font-size="30" fill="#a75a0f">ρ_Q</text>
+          <rect x="1064" y="208" width="150" height="66" fill="#fff" stroke="#eb811b" stroke-width="2.5"></rect>
+          <text x="1139" y="252" text-anchor="middle" font-family="Fira Sans" font-size="30" fill="#a75a0f">ρ_Y</text>
+          <path d="M1214,97 L1274,97" stroke="#8a9698" stroke-width="2"></path>
+          <path d="M1214,241 L1274,241" stroke="#8a9698" stroke-width="2"></path>
+          <rect x="1278" y="64" width="228" height="66" fill="#fff" stroke="#23373b" stroke-width="2"></rect>
+          <text x="1392" y="106" text-anchor="middle" font-family="Fira Sans" font-size="26" fill="#23373b">vech(Q̂) desde z</text>
+          <rect x="1278" y="208" width="228" height="66" fill="#fff" stroke="#23373b" stroke-width="2"></rect>
+          <text x="1392" y="250" text-anchor="middle" font-family="Fira Sans" font-size="26" fill="#23373b">fila j de Ŷ desde uⱼ</text>
+          <line x1="1540" y1="56" x2="1540" y2="282" stroke="#16707f" stroke-width="2"></line>
+          <text x="1564" y="106" font-family="Fira Sans" font-size="25" fill="#16707f">Q̂ invariante</text>
+          <text x="1564" y="186" font-family="Fira Sans" font-size="25" fill="#16707f">Ŷ equivariante: sus</text>
+          <text x="1564" y="222" font-family="Fira Sans" font-size="25" fill="#16707f">filas se permutan con</text>
+          <text x="1564" y="258" font-family="Fira Sans" font-size="25" fill="#16707f">los actuadores</text>
+        </svg>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">17 / 35</div>
+  </section>
+
+
+  <section data-label="§ Experimentos" data-screen-label="18" data-speaker-notes="Paso a cómo se midió todo esto. Dos láminas de diseño y tres de resultados." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box" data-om-slide-id="93630231">
+    <div style="height:1px;background:#eb811b"></div>
+    <div style="display:flex;align-items:baseline;gap:44px;padding:54px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:48px;color:#eb811b">3</div>
+      <div style="font-size:78px;font-weight:300;letter-spacing:-0.02em">Experimentos</div>
+    </div>
+    <div style="height:1px;background:#eb811b"></div>
+    
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">18 / 35</div>
+  </section>
+
+  <section data-label="16 Diseño experimental" data-screen-label="19" data-speaker-notes="Quiero ser preciso con el diseño, porque no todo el estudio es factorial. Solo la etapa E1 lo es: cruza por completo pérdida, tasa de decaimiento y método de gradiente, doscientas cuarenta corridas, y es la fuente de los resultados principales, porque ahí el efecto de cada eje se aísla promediando sobre los demás. Las etapas E2 a E4 son barridos axiales alrededor de la configuración base, y E5 y la comparación contra el solver son evaluación pura, sin entrenar nada. Advierto una cosa: la celda base absorbe todo E1, incluidas configuraciones deliberadamente malas, así que las comparaciones de orden y arquitectura se hacen sobre el subconjunto controlado y no sobre marginales crudos. A la derecha, los tres escenarios. La métrica de referencia de la memoria es S2: topologías retenidas por completo del entrenamiento, que ningún modelo vio jamás. Cuatrocientas cuarenta y tres corridas, mil ciento ochenta horas de CPU." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="7c31c949">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Una etapa factorial completa y cuatro barridos axiales a su alrededor</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:70%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:28px 88px 26px;display:flex;flex-direction:column;gap:26px"><div style="display:grid;grid-template-columns:1.5fr 1fr;gap:44px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <table style="width:100%;border-collapse:collapse;font-size:24px">
+            <thead><tr style="border-top:2px solid #23373b;border-bottom:1px solid #23373b">
+              <th style="text-align:left;padding:12px 12px 12px 0;font-weight:500">Etapa</th>
+              <th style="text-align:left;padding:12px;font-weight:500">Ejes variados</th>
+              <th style="text-align:left;padding:12px;font-weight:500">Diseño</th>
+              <th style="text-align:right;padding:12px 0 12px 12px;font-weight:500">Corridas</th>
+            </tr></thead>
+            <tbody>
+              <tr style="background:#eaf1f2"><td style="padding:14px 12px 14px 8px;border-bottom:1px solid #cfdbdd;font-family:'Fira Mono',monospace;color:#16707f">E1</td><td style="padding:14px 12px;border-bottom:1px solid #cfdbdd">pérdida × \(\alpha\) × \(K_{tr}\) / implícita</td><td style="padding:14px 12px;border-bottom:1px solid #cfdbdd;color:#16707f;font-weight:400">factorial completo y balanceado</td><td style="text-align:right;padding:14px 8px 14px 12px;border-bottom:1px solid #cfdbdd;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">240</td></tr>
+              <tr><td style="padding:14px 12px 14px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace">E2</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5">pérdida × orden \(n_x \in \{2,\dots,5\}\)</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5;color:#5d6d70">axial</td><td style="text-align:right;padding:14px 0 14px 12px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">48</td></tr>
+              <tr><td style="padding:14px 12px 14px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace">E3</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5">pérdida × tamaño \(\in \{50, 150, 400\}\)</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5;color:#5d6d70">axial</td><td style="text-align:right;padding:14px 0 14px 12px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">36</td></tr>
+              <tr><td style="padding:14px 12px 14px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace">E4</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5">arquitectura × pérdida × orden; gradiente</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5;color:#5d6d70">malla controlada</td><td style="text-align:right;padding:14px 0 14px 12px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">119</td></tr>
+              <tr><td style="padding:14px 12px 14px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace">E5</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5">deriva paramétrica \((\delta, s)\) sobre modelos de E1</td><td style="padding:14px 12px;border-bottom:1px solid #e0e5e5;color:#a75a0f">evaluación, sin reentrenar</td><td style="text-align:right;padding:14px 0 14px 12px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace">—</td></tr>
+              <tr><td style="padding:14px 12px 14px 0;border-bottom:2px solid #23373b;font-family:'Fira Mono',monospace">DR/CVXPY</td><td style="padding:14px 12px;border-bottom:2px solid #23373b">solver aislado, \(N \in \{2,\dots,5\}\)</td><td style="padding:14px 12px;border-bottom:2px solid #23373b;color:#a75a0f">evaluación</td><td style="text-align:right;padding:14px 0 14px 12px;border-bottom:2px solid #23373b;font-family:'Fira Mono',monospace">—</td></tr>
+              <tr><td colspan="3" style="padding:14px 12px 0 0;font-weight:400">Total del estudio</td><td style="text-align:right;padding:14px 0 0 12px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-weight:500">443</td></tr>
+            </tbody>
+          </table>
+          <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid #d3d9da;padding-top:16px">
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div>En E1 los tres ejes se cruzan por completo, así que el efecto de cada uno se aísla promediando sobre los demás. Es la fuente de los resultados principales.</div></div>
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"></div>
+            
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Escenarios de evaluación</div>
+          <div style="border:2px solid #b9c2c3;padding:16px 20px">
+            <div style="font-size:25px;font-weight:400">S1 — en distribución</div>
+            <div style="font-size:24px;color:#5d6d70;line-height:1.35">Topologías vistas durante el entrenamiento.</div>
+            <div style="border:2px solid #16707f;padding:16px 20px;margin-top:14px">
+              <div style="font-size:25px;font-weight:400;color:#16707f">S2 — generalización estructural</div>
+              <div style="font-size:24px;color:#5d6d70;line-height:1.35">Topologías retenidas, nunca vistas. <span style="color:#16707f">Métrica de referencia del estudio.</span></div>
+              <div style="border:2px dashed #eb811b;padding:16px 20px;margin-top:14px">
+                <div style="font-size:25px;font-weight:400;color:#a75a0f">S3 — fuera de distribución</div>
+                <div style="font-size:24px;color:#5d6d70;line-height:1.35">Dos bancos de deriva paramétrica, evaluados sin reentrenar (E5).</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid #d3d9da;padding-top:16px">
+            
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div>El presupuesto de inferencia se sondea de 100 a 8 000 iteraciones <span style="font-weight:400">en una sola pasada</span>, sin corridas extra.</div></div>
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:11px"></div><div>1 180 horas-CPU — 49,2 días de un núcleo — completadas en ≈ 9,6 días de reloj con 12 procesos y precisión doble.</div></div>
+          </div>
+        </div>
+      </div></div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">19 / 35</div>
+  </section>
+
+  <section data-label="17 Configuración y métricas" data-screen-label="20" data-speaker-notes="Esta lámina es de referencia: si en las preguntas necesitan un hiperparámetro, está aquí. Dos cosas que sí quiero destacar. A la derecha están las seis funciones de pérdida, y noten que son exactamente los criterios de desempeño de la lámina del marco teórico, instanciados: volumen del elipsoide, esfuerzo de control, margen de factibilidad, condicionamiento. Las seis atraviesan todas las etapas, no hay selección adaptativa de finalistas. Y abajo, la métrica de cabecera: porcentaje estabilizado en S2, es decir abscisa espectral negativa en todos los vértices, sobre topologías nunca vistas." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="f5362452">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Configuración base, criterios evaluados y métricas</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:74%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:28px 88px 26px;display:flex;flex-direction:column;gap:26px"><div style="display:grid;grid-template-columns:1fr 1.06fr;gap:46px">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Configuración base</div>
+          <table style="width:100%;border-collapse:collapse;font-size:24px">
+            <tbody>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Codificador</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;color:#5d6d70">actuadores</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Orden \(n_x\) / actuadores \(n_u\)</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">3 / 1</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Sistemas de entrenamiento</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">150</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Épocas / optimizador</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">400 / Adam</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Retropropagación</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;color:#5d6d70">unrolling truncado</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Iteraciones DR en entrenamiento \(K_{tr}\)</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">30 <span style="color:#a75a0f">(500 en la receta original)</span></td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Tasa prescrita \(\alpha\)</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">0.01</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Anclaje \(\sigma_{anc}\) / margen \(\epsilon_{pos}\)</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">0.01 / 10⁻⁵</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:1px solid #e0e5e5">Semillas por celda</td><td style="text-align:right;padding:11px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">2</td></tr>
+              <tr><td style="padding:11px 0;border-bottom:2px solid #23373b">Presupuesto DR en inferencia</td><td style="text-align:right;padding:11px 0;border-bottom:2px solid #23373b;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">100 → 8 000</td></tr>
+            </tbody>
+          </table>
+          <div style="font-size:24px;color:#5d6d70;font-style:italic">Cada etapa desvía uno o pocos ejes de esta base; el resto permanece fijo.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Los seis criterios de desempeño, como pérdidas</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:10px 22px;font-size:24px;align-items:baseline">
+              <div style="font-family:'Fira Mono',monospace;color:#a75a0f">paper</div><div style="color:#5d6d70">volumen del elipsoide + margen espectral <span style="color:#23373b">(receta original)</span></div>
+              <div style="font-family:'Fira Mono',monospace;color:#16707f">control</div><div style="color:#5d6d70">volumen (traza) + esfuerzo de control</div>
+              <div style="font-family:'Fira Mono',monospace;color:#16707f">control_margen</div><div style="color:#5d6d70">volumen + esfuerzo, con piso espectral en \(Q\)</div>
+              <div style="font-family:'Fira Mono',monospace;color:#16707f">esfuerzo</div><div style="color:#5d6d70">esfuerzo de control puro, \(\|YQ^{-1}\|_F^2\)</div>
+              <div style="font-family:'Fira Mono',monospace;color:#16707f">margen_norm</div><div style="color:#5d6d70">margen de factibilidad normalizado</div>
+              <div style="font-family:'Fira Mono',monospace;color:#16707f">condicionamiento</div><div style="color:#5d6d70">\(\kappa(Q) = \lambda_{\max}(Q)/\lambda_{\min}(Q)\)</div>
+            </div>
+            <div style="font-size:24px;color:#5d6d70;font-style:italic">Las seis atraviesan todas las etapas: no hay selección adaptativa de finalistas.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid #d3d9da;padding-top:18px">
+            <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Métricas reportadas</div>
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div><span style="font-weight:400">% estabilizado</span> — abscisa espectral del lazo cerrado negativa en todos los vértices. Métrica de cabecera, en S2.</div></div>
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div><span style="font-weight:400">% cumple decaimiento</span> — además satisface la tasa \(\alpha\) prescrita.</div></div>
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div><span style="font-weight:400">Iteraciones mínimas</span> — presupuesto DR más pequeño que ya estabiliza: costo real de la etapa en línea.</div></div>
+            <div style="display:flex;gap:18px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:11px"></div><div><span style="font-weight:400">\(\kappa(Q)\)</span> — condicionamiento del certificado entregado.</div></div>
+          </div>
+        </div>
+      </div></div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">20 / 35</div>
+  </section>
+
+  <section data-label="18 Resultado principal" data-screen-label="21" data-speaker-notes="Este es el resultado principal. La receta original, tal como está publicada, estabiliza el cincuenta y uno coma cuatro por ciento de las topologías nunca vistas. La mejor configuración encontrada estabiliza el noventa y siete coma cuatro. Cuarenta y seis puntos. Y no es solo la tasa: el certificado que entrega está mejor condicionado, y necesita cinco veces menos iteraciones de reparación en línea, cien en lugar de quinientas. El condicionamiento no es higiene numérica, aparece en la cota del sobrepaso transitorio. La pregunta obvia es de dónde vienen esos cuarenta y seis puntos, y la respuesta es la lámina siguiente." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="5dd8418b">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">La mejor configuración estabiliza el 97,4 % de topologías nunca vistas</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:78%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:34px 88px 34px;display:flex;flex-direction:column;gap:26px">
+      <table style="width:100%;border-collapse:collapse;font-size:25px">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:0 14px 14px 0;font-weight:300;font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70;border-bottom:2px solid #23373b"></th>
+            <th style="text-align:right;padding:0 14px 14px;font-weight:400;font-size:24px;color:#a75a0f;border-bottom:2px solid #eb811b">Receta original</th>
+            <th style="text-align:right;padding:0 0 14px 14px;font-weight:400;font-size:24px;color:#16707f;border-bottom:2px solid #16707f">Mejor configuración</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="padding:15px 14px 15px 0;border-bottom:1px solid #e0e5e5">Función de pérdida</td><td style="text-align:right;padding:15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace">paper</td><td style="text-align:right;padding:15px 0 15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace">margen_norm</td></tr>
+          <tr><td style="padding:15px 14px 15px 0;border-bottom:1px solid #e0e5e5">Retropropagación</td><td style="text-align:right;padding:15px 14px;border-bottom:1px solid #e0e5e5">Implícita</td><td style="text-align:right;padding:15px 0 15px 14px;border-bottom:1px solid #e0e5e5">Desenrollado, presupuesto 30</td></tr>
+          <tr><td style="padding:15px 14px 15px 0;border-bottom:1px solid #e0e5e5">Sistemas de entrenamiento</td><td style="text-align:right;padding:15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">150</td><td style="text-align:right;padding:15px 0 15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">400</td></tr>
+          <tr style="background:#eaf1f2"><td style="padding:19px 14px 19px 10px;border-bottom:1px solid #cfdbdd;font-weight:400;font-size:28px">Estabilizado en S2</td><td style="text-align:right;padding:19px 14px;border-bottom:1px solid #cfdbdd;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:30px">51,4 %</td><td style="text-align:right;padding:19px 10px 19px 14px;border-bottom:1px solid #cfdbdd;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:34px;color:#16707f;font-weight:500">97,4 %</td></tr>
+          <tr><td style="padding:15px 14px 15px 0;border-bottom:1px solid #e0e5e5">Cumple decaimiento en S2</td><td style="text-align:right;padding:15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">43,7 %</td><td style="text-align:right;padding:15px 0 15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">90,9 %</td></tr>
+          <tr><td style="padding:15px 14px 15px 0;border-bottom:1px solid #e0e5e5">Estabilizado en S1</td><td style="text-align:right;padding:15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">49,8 %</td><td style="text-align:right;padding:15px 0 15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">94,0 %</td></tr>
+          <tr><td style="padding:15px 14px 15px 0;border-bottom:1px solid #e0e5e5">Iteraciones mínimas (mediana)</td><td style="text-align:right;padding:15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">500</td><td style="text-align:right;padding:15px 0 15px 14px;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">100</td></tr>
+          <tr><td style="padding:15px 14px 15px 0;border-bottom:2px solid #23373b">\(\kappa(Q)\) mediano</td><td style="text-align:right;padding:15px 14px;border-bottom:2px solid #23373b;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">2,31</td><td style="text-align:right;padding:15px 0 15px 14px;border-bottom:2px solid #23373b;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">1,67</td></tr>
+        </tbody>
+      </table>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:10px"></div><div>La mejor configuración no solo estabiliza más: entrega certificados mejor condicionados y requiere cinco veces menos reparación.</div></div>
+        <div style="display:flex;gap:18px;font-size:25px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:10px"></div><div>\(\kappa(Q)\) no es solo higiene numérica: acota el sobrepaso transitorio en la cota de decaimiento exponencial.</div></div>
+        
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">21 / 35</div>
+  </section>
+
+
+  <section data-label="19 Gradiente truncado" data-screen-label="22" data-speaker-notes="De los cuarenta y seis puntos, cuarenta y tres los explica un solo eje: el método de retropropagación, con la misma pérdida del artículo original. La tabla varía únicamente el gradiente. La diferenciación implícita da cincuenta y uno coma cuatro. Desenrollar con presupuesto quinientos, sesenta y cuatro coma ocho. Con presupuesto ciento veinte, ochenta y ocho. Con treinta, noventa y cuatro coma ocho. Es decir: menos iteraciones en el paso hacia atrás producen mejores resultados. El truncamiento ayuda. La explicación validada es el gráfico de la derecha: el gradiente truncado actúa como un filtro espectral que atenúa los modos lentos del operador, exactamente la regularización implícita de la iteración de Landweber. Y debo decir que mi hipótesis inicial era otra, divergencia por modos lentos, y fue falsificada; se reporta como tal, porque esos modos se desplazan por la variedad de puntos fijos sin excitar la pérdida. Lo relevante es que en la formulación original la diferenciación implícita es el método por defecto, y este resultado invierte esa recomendación." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="1e2f729c">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">El método de retropropagación explica 43 de los 46 puntos de brecha</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:81%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:32px 88px 34px;display:flex;flex-direction:column;gap:24px">
+      <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:46px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Con la misma pérdida <span style="font-family:'Fira Mono',monospace;text-transform:none;letter-spacing:0">paper</span>, variando solo el gradiente</div>
+          <table style="width:100%;border-collapse:collapse;font-size:25px">
+            <thead><tr><th style="text-align:left;padding:0 0 12px;font-weight:300;font-size:24px;color:#5d6d70;border-bottom:2px solid #23373b">Retropropagación</th><th style="text-align:right;padding:0 0 12px;font-weight:300;font-size:24px;color:#5d6d70;border-bottom:2px solid #23373b">Estabilizado en S2</th></tr></thead>
+            <tbody>
+              <tr><td style="padding:14px 0;border-bottom:1px solid #e0e5e5;color:#a75a0f">Diferenciación implícita</td><td style="text-align:right;padding:14px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">51,4 %</td></tr>
+              <tr><td style="padding:14px 0;border-bottom:1px solid #e0e5e5">Desenrollado, presupuesto 500</td><td style="text-align:right;padding:14px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">64,8 %</td></tr>
+              <tr><td style="padding:14px 0;border-bottom:1px solid #e0e5e5">Desenrollado, presupuesto 120</td><td style="text-align:right;padding:14px 0;border-bottom:1px solid #e0e5e5;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">88,3 %</td></tr>
+              <tr style="background:#eaf1f2"><td style="padding:16px 10px;border-bottom:1px solid #cfdbdd;font-weight:400;color:#16707f">Desenrollado, presupuesto 30</td><td style="text-align:right;padding:16px 10px;border-bottom:1px solid #cfdbdd;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:29px;color:#16707f;font-weight:500">94,8 %</td></tr>
+              <tr><td style="padding:14px 0;border-bottom:2px solid #23373b">Desenrollado, presupuesto 5</td><td style="text-align:right;padding:14px 0;border-bottom:2px solid #23373b;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">94,8 %</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Filtro espectral del gradiente truncado</div>
+          <svg viewBox="0 0 540 250" style="width:100%;height:250px">
+            <rect x="0" y="0" width="540" height="250" fill="#f2f4f4"></rect>
+            <line x1="40" y1="220" x2="510" y2="220" stroke="#8a9698" stroke-width="1.5"></line>
+            <line x1="40" y1="220" x2="40" y2="26" stroke="#8a9698" stroke-width="1.5"></line>
+            <text x="26" y="36" text-anchor="end" font-family="Fira Mono" font-size="21" fill="#5d6d70">1</text>
+            <text x="26" y="224" text-anchor="end" font-family="Fira Mono" font-size="21" fill="#5d6d70">0</text>
+            <text x="56" y="248" text-anchor="middle" font-family="Fira Mono" font-size="21" fill="#5d6d70">0.90</text>
+            <text x="500" y="242" text-anchor="middle" font-family="Fira Mono" font-size="21" fill="#5d6d70">1.00</text>
+            <text x="270" y="242" text-anchor="middle" font-family="Fira Sans" font-size="21" fill="#5d6d70">λ (modo del operador)</text>
+            <polyline points="40,38 178,52 270,71 362,106 454,171 477,193 495,214 500,220" fill="none" stroke="#16707f" stroke-width="3"></polyline>
+            <polyline points="40,30 270,30 408,30 454,31 477,46 495,145 500,220" fill="none" stroke="#eb811b" stroke-width="3" stroke-dasharray="8 6"></polyline>
+            <text x="112" y="82" font-family="Fira Sans" font-size="21" fill="#16707f">K = 30 — atenúa los modos lentos</text>
+            <text x="200" y="26" font-family="Fira Sans" font-size="21" fill="#a75a0f">K = 500 — los deja pasar</text>
+          </svg>
+          <div style="font-size:24px;text-align:center">\(\varphi_K(\lambda) = 1 - \lambda^{K}\)</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 44px;border-top:1px solid #d3d9da;padding-top:18px">
+        <div style="display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:10px"></div><div>De los 46 puntos de brecha, 43 los explica el cambio de gradiente con la misma pérdida; solo ~2,6 la pérdida y el tamaño de los datos.</div></div>
+        <div style="display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:10px"></div><div>Menos iteraciones en el paso hacia atrás producen mejores resultados: el truncamiento <span style="font-weight:400">ayuda</span>.</div></div>
+        <div style="display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:10px"></div><div>Explicación validada: el gradiente truncado actúa como filtro espectral, equivalente a la regularización implícita de la iteración de Landweber (Engl, Hanke &amp; Neubauer, 1996).</div></div>
+        
+        <div style="grid-column:1 / -1;display:flex;gap:16px;font-size:25px;line-height:1.4"><div style="width:10px;height:10px;background:#23373b;flex:none;margin-top:10px"></div><div>En la formulación original la diferenciación implícita es el método por defecto; <span style="font-weight:400">este resultado invierte esa recomendación</span>.</div></div>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">22 / 35</div>
+  </section>
+
+
+  <section data-label="20 Fuera de distribución" data-screen-label="23" data-speaker-notes="Ahora la parte incómoda, y la digo con todas sus letras. Fuera de la distribución de entrenamiento ninguna pérdida domina. Miren los dos bancos: en el de polítopos externos, cuatro pérdidas se mantienen en cien por ciento y margen_norm cae a treinta y nueve. Pero en la rampa de desplazamiento de polos, margen_norm es la mejor. Es decir: la mejor pérdida en S2 es la que colapsa en un banco, y la mejor de un banco es la peor del otro. El dato que ordena la lectura es el recuadro: el solver convexo de referencia es factible en los treinta y un puntos de la rampa. El problema no se vuelve infactible, se vuelve geométricamente degenerado, con el condicionamiento del certificado creciendo de uno a trescientos cincuenta y ocho. Por lo tanto el derrumbe es un fallo del método, no del problema, y hay una lámina de respaldo con la anatomía de ese colapso si quieren entrar en detalle." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="9307ac9c">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Ninguna función de pérdida domina fuera de distribución</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:85%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:30px 88px 34px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:44px">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Banco de polítopos externos</div>
+          <svg viewBox="0 0 640 322" style="width:100%;height:322px">
+            <line x1="210" y1="18" x2="210" y2="286" stroke="#d3d9da" stroke-width="1.5"></line>
+            <line x1="600" y1="18" x2="600" y2="286" stroke="#8a9698" stroke-width="1.5" stroke-dasharray="5 5"></line>
+            <text x="600" y="312" text-anchor="end" font-family="Fira Mono" font-size="23" fill="#5d6d70">100 %</text>
+            <g font-family="Fira Sans" font-size="23" fill="#23373b">
+              <text x="200" y="46" text-anchor="end">condicionamiento</text>
+              <text x="200" y="90" text-anchor="end">control</text>
+              <text x="200" y="134" text-anchor="end">control_margen</text>
+              <text x="200" y="178" text-anchor="end">paper</text>
+              <text x="200" y="222" text-anchor="end">esfuerzo</text>
+              <text x="200" y="266" text-anchor="end" fill="#c0392b">margen_norm</text>
+            </g>
+            <g stroke="#16707f" stroke-width="9" stroke-linecap="square">
+              <line x1="210" y1="40" x2="600" y2="40"></line>
+              <line x1="210" y1="84" x2="600" y2="84"></line>
+              <line x1="210" y1="128" x2="600" y2="128"></line>
+              <line x1="210" y1="172" x2="600" y2="172"></line>
+            </g>
+            <line x1="210" y1="216" x2="507" y2="216" stroke="#eb811b" stroke-width="9" stroke-linecap="square"></line>
+            <line x1="210" y1="260" x2="363" y2="260" stroke="#c0392b" stroke-width="9" stroke-linecap="square"></line>
+            <g font-family="Fira Mono" font-size="23" font-feature-settings="'tnum'">
+              <text x="612" y="46" fill="#16707f">100</text><text x="612" y="90" fill="#16707f">100</text><text x="612" y="134" fill="#16707f">100</text><text x="612" y="178" fill="#16707f">100</text>
+              <text x="519" y="222" fill="#a75a0f">76,2</text><text x="375" y="266" fill="#c0392b">39,3</text>
+            </g>
+          </svg>
+          <div style="font-size:24px;color:#5d6d70;font-style:italic">Media del % estabilizado a lo largo de la rampa completa.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Rampa de desplazamiento de polos</div>
+          <svg viewBox="0 0 640 322" style="width:100%;height:322px">
+            <line x1="210" y1="18" x2="210" y2="286" stroke="#d3d9da" stroke-width="1.5"></line>
+            <line x1="600" y1="18" x2="600" y2="286" stroke="#8a9698" stroke-width="1.5" stroke-dasharray="5 5"></line>
+            <text x="600" y="312" text-anchor="end" font-family="Fira Mono" font-size="23" fill="#5d6d70">100 %</text>
+            <g font-family="Fira Sans" font-size="23" fill="#23373b">
+              <text x="200" y="46" text-anchor="end" fill="#16707f">margen_norm</text>
+              <text x="200" y="90" text-anchor="end">condicionamiento</text>
+              <text x="200" y="134" text-anchor="end">control_margen</text>
+              <text x="200" y="178" text-anchor="end">esfuerzo</text>
+              <text x="200" y="222" text-anchor="end">paper</text>
+              <text x="200" y="266" text-anchor="end">control</text>
+            </g>
+            <line x1="210" y1="40" x2="478" y2="40" stroke="#16707f" stroke-width="9" stroke-linecap="square"></line>
+            <g stroke="#8a9698" stroke-width="9" stroke-linecap="square">
+              <line x1="210" y1="84" x2="465" y2="84"></line>
+              <line x1="210" y1="128" x2="446" y2="128"></line>
+              <line x1="210" y1="172" x2="429" y2="172"></line>
+              <line x1="210" y1="216" x2="421" y2="216"></line>
+              <line x1="210" y1="260" x2="418" y2="260"></line>
+            </g>
+            <g font-family="Fira Mono" font-size="23" font-feature-settings="'tnum'">
+              <text x="490" y="46" fill="#16707f">68,7</text>
+              <text x="477" y="90" fill="#5d6d70">65,5</text><text x="458" y="134" fill="#5d6d70">60,6</text><text x="441" y="178" fill="#5d6d70">56,2</text><text x="433" y="222" fill="#5d6d70">54,0</text><text x="430" y="266" fill="#5d6d70">53,2</text>
+            </g>
+          </svg>
+          <div style="font-size:24px;color:#5d6d70;font-style:italic">El orden se invierte: la mejor de un banco es la peor del otro.</div>
+        </div>
+      </div>
+      <div style="border-left:5px solid #eb811b;background:#f1eee9;padding:18px 26px;font-size:26px;line-height:1.4">El solver convexo de referencia es factible en los 31 puntos de la rampa. <span style="font-weight:400">El derrumbe conjunto es un fallo del método, no una pérdida de factibilidad del problema.</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 44px">
+        <div style="display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>La pérdida más robusta en un banco es la que colapsa en el otro.</div></div>
+        <div style="display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>A lo largo de la rampa, \(\kappa(Q)\) del certificado de referencia crece de 1 a 358: el problema no se vuelve infactible, se vuelve geométricamente degenerado.</div></div>
+        
+        
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">23 / 35</div>
+  </section>
+
+
+  <section data-label="§ Conclusiones" data-screen-label="24" data-speaker-notes="Cierro. Tres láminas y termino." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box" data-om-slide-id="99ec9fa8">
+    <div style="height:1px;background:#eb811b"></div>
+    <div style="display:flex;align-items:baseline;gap:44px;padding:54px 0">
+      <div style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:48px;color:#eb811b">4</div>
+      <div style="font-size:78px;font-weight:300;letter-spacing:-0.02em">Conclusiones y trabajo futuro</div>
+    </div>
+    <div style="height:1px;background:#eb811b"></div>
+    
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">24 / 35</div>
+  </section>
+
+  <section data-label="21 Conclusiones" data-screen-label="25" data-speaker-notes="Vuelvo a las tres columnas con las que abrí, ahora con números. Sobre la extensión: el apilamiento bloque-diagonal permite estabilizar polítopos de cardinalidad arbitraria reutilizando el operador de proyección sin modificarlo, con costo lineal en el número de vértices. Sobre la generalización: una red invariante entrenada en un subconjunto de topologías estabiliza el noventa y siete coma cuatro por ciento de los sistemas en topologías estructuralmente retenidas. Y sobre el precio de la garantía: la factibilidad se preserva por construcción, y el contraste contra el solver de referencia delimita con precisión el régimen donde el método se degrada. Si tuviera que quedarme con un solo resultado metodológico, es el del recuadro: el método de retropropagación, tratado como detalle de implementación en la formulación original, resultó ser el factor dominante del desempeño." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="a75dbca2">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Conclusiones</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:93%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:44px 88px 34px;display:flex;flex-direction:column;gap:34px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:40px;flex:1">
+        <div style="display:flex;flex-direction:column;gap:18px;border-top:3px solid #16707f;padding-top:22px">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">SP1 · Extensión</div>
+          <div style="font-size:26px;line-height:1.45">El apilamiento bloque-diagonal permite estabilizar polítopos de cardinalidad arbitraria reutilizando el operador de proyección sin modificación, con <span style="font-weight:400">costo lineal en el número de vértices</span>.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;border-top:3px solid #16707f;padding-top:22px">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">SP2 · Generalización</div>
+          <div style="font-size:26px;line-height:1.45">Una red invariante entrenada sobre un subconjunto de topologías estabiliza el <span style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:30px;color:#16707f">97,4 %</span> de los sistemas en topologías estructuralmente retenidas.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;border-top:3px solid #16707f;padding-top:22px">
+          <div style="font-family:'Fira Mono',monospace;font-size:24px;color:#16707f">SP3 · Precio de la garantía</div>
+          <div style="font-size:26px;line-height:1.45">La factibilidad se preserva por construcción sobre la salida proyectada; el contraste contra el solver de referencia delimita el régimen donde el método se degrada.</div>
+        </div>
+      </div>
+      <div style="border-left:5px solid #23373b;background:#eceff0;padding:24px 30px;font-size:28px;line-height:1.45">El resultado metodológico de mayor alcance es que el <span style="font-weight:400">método de retropropagación</span>, tratado como detalle de implementación en la formulación original, resultó ser el factor dominante del desempeño.</div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">25 / 35</div>
+  </section>
+
+
+  <section data-label="22 Trabajo futuro" data-screen-label="26" data-speaker-notes="Las líneas abiertas siguen el mismo orden. Atención o redes de grafos para eliminar la última dependencia dimensional, el orden del sistema. Extensión a sistemas perturbados y a los que no son cuadráticamente estabilizables. Interpretabilidad vía la geometría del polítopo. Y Dykstra como alternativa a Douglas–Rachford. A la derecha hay evidencia preliminar de que el anclaje y el margen de positividad, que son los mecanismos que impiden que el certificado degenere en un cono no acotado, abren casi veinticuatro puntos entre los extremos del barrido, con el óptimo en el borde de la grilla. Lo digo en voz alta y está rotulado: son resultados preliminares y no forman parte de las conclusiones de esta memoria." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="1db75a79">
+    <div style="background:#23373b;color:#fafafa;padding:30px 88px 26px;position:relative">
+      <div style="font-size:42px;font-weight:400;line-height:1.16;max-width:1660px">Trabajo futuro, con evidencia preliminar</div>
+      <div style="position:absolute;left:0;bottom:0;height:6px;width:100%;background:rgba(250,250,250,.16);opacity:var(--pb)"><div style="height:100%;width:96%;background:#eb811b"></div></div>
+    </div>
+    <div style="flex:1;padding:36px 88px 34px;display:grid;grid-template-columns:1.1fr 1fr;gap:52px">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Líneas abiertas</div>
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"><div style="width:10px;height:10px;border:2px solid #16707f;box-sizing:border-box;flex:none;margin-top:11px"></div><div>Meta-controlador basado en atención o redes de grafos, agnóstico al orden del sistema.</div></div>
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"><div style="width:10px;height:10px;border:2px solid #16707f;box-sizing:border-box;flex:none;margin-top:11px"></div><div>Extensión a sistemas perturbados y no cuadráticamente estabilizables.</div></div>
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"><div style="width:10px;height:10px;border:2px solid #16707f;box-sizing:border-box;flex:none;margin-top:11px"></div><div>Visualización de la geometría del polítopo como vía de interpretabilidad.</div></div>
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"><div style="width:10px;height:10px;border:2px solid #16707f;box-sizing:border-box;flex:none;margin-top:11px"></div><div>Aprendizaje por refuerzo como filtro de seguridad o política de resolución.</div></div>
+        <div style="display:flex;gap:18px;font-size:26px;line-height:1.4"><div style="width:10px;height:10px;border:2px solid #16707f;box-sizing:border-box;flex:none;margin-top:11px"></div><div>Algoritmo de Dykstra como alternativa a Douglas–Rachford, pendiente de validación.</div></div>
+        
+      </div>
+      <div style="border:1px dashed #b9c2c3;padding:26px 30px;display:flex;flex-direction:column;gap:18px;opacity:.72">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Anclaje \(\sigma_{anc}\) y margen \(\epsilon_{pos}\)</div>
+        <svg viewBox="0 0 480 284" style="width:100%;height:284px">
+          <line x1="60" y1="210" x2="450" y2="210" stroke="#b9c2c3" stroke-width="1.5"></line>
+          <line x1="60" y1="210" x2="60" y2="24" stroke="#b9c2c3" stroke-width="1.5"></line>
+          <text x="48" y="34" text-anchor="end" font-family="Fira Mono" font-size="20" fill="#5d6d70">98</text>
+          <text x="48" y="206" text-anchor="end" font-family="Fira Mono" font-size="20" fill="#5d6d70">74</text>
+          <polyline points="60,40 190,74 320,126 450,196" fill="none" stroke="#8a9698" stroke-width="2.5"></polyline>
+          <g fill="#5d6d70"><circle cx="60" cy="40" r="5"></circle><circle cx="190" cy="74" r="5"></circle><circle cx="320" cy="126" r="5"></circle><circle cx="450" cy="196" r="5"></circle></g>
+          <text x="60" y="236" text-anchor="middle" font-family="Fira Mono" font-size="20" fill="#5d6d70">0.005</text>
+          <text x="190" y="236" text-anchor="middle" font-family="Fira Mono" font-size="20" fill="#5d6d70">0.01</text>
+          <text x="320" y="236" text-anchor="middle" font-family="Fira Mono" font-size="20" fill="#5d6d70">0.1</text>
+          <text x="450" y="236" text-anchor="middle" font-family="Fira Mono" font-size="20" fill="#5d6d70">1.0</text>
+          <text x="255" y="274" text-anchor="middle" font-family="Fira Sans" font-size="20" fill="#5d6d70">peso de anclaje σ_anc — % estabilizado en S2</text>
+        </svg>
+        <div style="font-size:24px;line-height:1.4;color:#5d6d70">El barrido cruzado de anclaje y margen abre 23,8 puntos entre sus extremos, con el óptimo en el borde de la grilla: la mejor celda alcanza 98,1 % frente al 95,2 % de la configuración heredada.</div>
+        <div style="margin-top:auto;border:2px solid #8a9698;padding:14px 18px;font-size:24px;font-weight:400;color:#5d6d70;text-align:center">Resultados preliminares — no forman parte de las conclusiones de esta memoria</div>
+      </div>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:#7c8688">26 / 35</div>
+  </section>
+
+
+  <section data-label="23 Cierre" data-screen-label="27" data-speaker-notes="Eso es todo. Gracias a la comisión por el tiempo, y quedo atento a sus preguntas." style="background:#23373b;color:#fafafa;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column;justify-content:center;padding:0 120px;box-sizing:border-box" data-om-slide-id="e13df3bf">
+    <div style="font-size:88px;font-weight:300;letter-spacing:-0.02em">Gracias</div>
+    <div style="height:4px;width:220px;background:#eb811b;margin:36px 0 34px"></div>
+    
+    
+    <div style="position:absolute;right:44px;bottom:32px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum';font-size:24px;color:rgba(250,250,250,.6)">27 / 35</div>
+  </section>
+
+
+  <section data-label="R1 Derivación" data-screen-label="28" data-speaker-notes="Respaldo: derivación completa, de la derivada de V a la desigualdad de síntesis, con el lema de congruencia paso a paso. Úsala si piden el detalle algebraico." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="6edc8762">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">28 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">De \(\dot V\) a la desigualdad de síntesis: congruencia paso a paso</div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:grid;grid-template-columns:1.05fr 1fr;gap:48px">
+      <div style="display:flex;flex-direction:column;gap:16px;font-size:24px;line-height:1.45">
+        <div style="display:flex;gap:16px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px">1</div><div>Candidata cuadrática: \(V(x)=x^{\top}Px\), \(P\succ 0\), y derivada a lo largo de la dinámica \(\dot x = A(\eta)x\):<div style="margin-top:8px">\(\dot V = x^{\top}\!\left(A(\eta)^{\top}P + PA(\eta)\right)x\).</div></div></div>
+        <div style="display:flex;gap:16px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px">2</div><div>Tasa de decaimiento \(\alpha\): exigir \(\dot V \leq -2\alpha V\) da la desigualdad de análisis<div style="margin-top:8px">\(A(\eta)^{\top}P + PA(\eta) + 2\alpha P \prec 0\).</div></div></div>
+        <div style="display:flex;gap:16px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px">3</div><div>Convexidad en \(\eta\): como \(A(\eta)=\sum_i \eta_i A_i\) con \(\eta\) en el simplex, basta imponerla en los \(N\) vértices.</div></div>
+        <div style="display:flex;gap:16px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px">4</div><div>Lazo cerrado \(u=Kx\): \(A_i \to A_i + B_iK\) introduce \(PB_iK\), bilineal en \((P,K)\).</div></div>
+        <div style="display:flex;gap:16px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px">5</div><div>Congruencia con \(T=Q=P^{-1}\) y cambio \(Y=KQ\):<div style="margin-top:8px">\(A_iQ + QA_i^{\top} + B_iY + Y^{\top}B_i^{\top} + 2\alpha Q \prec 0,\quad Q\succ 0\).</div></div></div>
+        <div style="display:flex;gap:16px"><div style="font-family:'Fira Mono',monospace;color:#16707f;min-width:34px">6</div><div>Recuperación: \(P=Q^{-1}\) y \(K=YQ^{-1}\), calculada resolviendo \(QK^{\top}=Y^{\top}\) en lugar de invertir \(Q\) (más estable por la simetría de \(Q\)).</div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:22px">
+        <div style="border:1px solid #d3d9da;padding:24px 28px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:26px;font-weight:400">Lema de congruencia</div>
+          <div style="font-size:24px;line-height:1.45">Sea \(T\) invertible. Entonces \(M \prec 0 \iff T^{\top}MT \prec 0\).</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70;border-top:1px solid #e0e5e5;padding-top:14px"><span style="font-style:italic">Demostración.</span> Para \(x \neq 0\), \(x^{\top}T^{\top}MTx = (Tx)^{\top}M(Tx) &lt; 0\) porque \(Tx \neq 0\). El recíproco se obtiene aplicando lo anterior a \(T^{-1}\). ∎</div>
+        </div>
+        <div style="border:1px solid #d3d9da;padding:24px 28px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:26px;font-weight:400">Qué entrega el certificado</div>
+          <div style="font-size:24px;line-height:1.45">La cota transitoria del propio certificado cuadrático es<div style="margin-top:8px">\(\|x(t)\| \leq \sqrt{\kappa(Q)}\; e^{-\alpha t}\,\|x(0)\|\),</div><div style="margin-top:8px;color:#5d6d70">de donde minimizar \(\kappa(Q)\) acota directamente el sobrepaso admisible, y no es solo higiene numérica.</div></div>
+        </div>
+        <div style="font-size:24px;color:#5d6d70;font-style:italic;margin-top:auto">La reducción a vértices es exacta: no introduce conservadurismo respecto de la condición sobre el continuo del polítopo.</div>
+      </div>
+    </div>
+  </section>
+
+  
+
+
+  <section data-label="R2 Douglas–Rachford" data-screen-label="29" data-speaker-notes="Respaldo: el algoritmo de Douglas–Rachford y las dos proyecciones en detalle. Úsala si preguntan por convergencia o por el costo de cada iteración." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="77c32ef1">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">29 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">La capa de proyección: iteración y las dos proyecciones</div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:grid;grid-template-columns:1.05fr 1fr;gap:48px">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Iteración con anclaje</div>
+        <div style="background:#eceff0;padding:22px 26px;font-family:'Fira Mono',monospace;font-size:24px;line-height:1.65;white-space:pre-wrap">entrada: ŷ (propuesta de la red), σ_anc &gt; 0, K_it
+y₀ ← ŷ ;  x₀ ← L y₀
+para k = 0 … K_it−1:
+    ȳ  ← (2σ_anc·ŷ + y_k) / (2σ_anc + 1)   # anclaje
+    y_{k+1} ← Π_C₁( ȳ − Lᵀ(c − x_k) )      # subespacio afín
+    x_{k+1} ← Π_C₂( 2 L y_{k+1} − x_k )    # cono ⪰ 0
+salida: (Q, Y) ← Π_C₁(y_{K_it})  →  K = Y Q⁻¹</div>
+        <div style="font-size:24px;line-height:1.45;color:#5d6d70">Entrenamiento: \(K_{it}=30\) en la configuración base de esta memoria (500 en la receta original), \(\sigma_{anc}=0.01\), \(\epsilon_{pos}=10^{-5}\) en los codificadores invariantes (\(10^{-3}\) en la línea base aplanada, fiel al paper). En inferencia el presupuesto es libre y no requiere reentrenar: se reporta a 8 000 iteraciones, pero la mediana necesaria en distribución es de solo 100.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:25px;font-weight:400">\(\Pi_{C_2}\) — cono semidefinido</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">Descomposición espectral \(X = U\Lambda U^{\top}\) y truncamiento \(\Lambda \to \max(\Lambda,\,0)\), bloque a bloque: \(N+1\) descomposiciones de tamaño \(n_x\), no una de tamaño \((N{+}1)n_x\).</div>
+        </div>
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:25px;font-weight:400">\(\Pi_{C_1}\) — subespacio afín</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">Mínimos cuadrados sobre \(\{y : Ly = c\}\); la factorización del sistema normal se calcula una vez por topología y se reutiliza en todas las iteraciones.</div>
+        </div>
+        <div style="border-left:5px solid #16707f;background:#eaf1f2;padding:20px 26px;font-size:24px;line-height:1.45">Propiedad más fuerte que la mera factibilidad: al incorporar \(\|y-\hat y\|^2\) al objetivo, el punto fijo es <span style="font-weight:400">la proyección euclidiana de la propuesta de la red sobre el conjunto factible</span>, no un punto factible arbitrario. El operador es firmemente no expansivo, de modo que \(\rho(J_s)\leq 1\) por construcción.</div>
+      </div>
+    </div>
+  </section>
+
+
+  <section data-label="R3 Costo" data-screen-label="30" data-speaker-notes="Respaldo: costo computacional y distribución del cómputo del estudio. Úsala si preguntan cuánto tarda la inferencia frente al solver." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="a37cb797">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">30 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">Costo computacional: punto interior frente a pasada hacia adelante más proyección</div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:flex;flex-direction:column;gap:26px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:44px">
+        <div style="border:1px solid #d3d9da;padding:22px 26px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:25px;font-weight:400;color:#a75a0f">Punto interior (solver convexo)</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">Cada iteración de Newton forma y factoriza el sistema de la ecuación normal sobre la matriz apilada completa: costo cúbico en su dimensión total \((N{+}1)n_x\), con un número de iteraciones que crece como \(\mathcal{O}(\sqrt{\cdot}\,\log(1/\epsilon))\). Se paga entera cada vez que la planta cambia.</div>
+        </div>
+        <div style="border:1px solid #16707f;padding:22px 26px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:25px;font-weight:400;color:#16707f">Pasada hacia adelante + \(K\) proyecciones</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">La proyección se factoriza por bloques: \(N+1\) descomposiciones espectrales de tamaño \(n_x\) por iteración, de modo que el costo crece <span style="color:#16707f">lineal en \(N\)</span>. El presupuesto \(K\) es una perilla de compromiso entre latencia y tasa de éxito, ajustable sin reentrenar.</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Distribución del cómputo del barrido por rama de retropropagación</div>
+        <table style="width:100%;border-collapse:collapse;font-size:24px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">
+          <thead><tr style="border-top:2px solid #23373b;border-bottom:1px solid #23373b"><th style="text-align:left;padding:14px 12px;font-weight:500;font-family:'Fira Sans',sans-serif">Rama</th><th style="text-align:right;padding:14px 12px;font-weight:500;font-family:'Fira Sans',sans-serif">Tiempo por corrida</th><th style="text-align:right;padding:14px 12px;font-weight:500;font-family:'Fira Sans',sans-serif">Memoria pico</th><th style="text-align:right;padding:14px 12px;font-weight:500;font-family:'Fira Sans',sans-serif">Factor</th></tr></thead>
+          <tbody>
+            <tr><td style="padding:14px 12px;font-family:'Fira Sans',sans-serif;border-bottom:1px solid #e0e5e5">Desenrollado</td><td style="text-align:right;padding:14px 12px;border-bottom:1px solid #e0e5e5">3 965 – 4 405 s</td><td style="text-align:right;padding:14px 12px;border-bottom:1px solid #e0e5e5">533 – 698 MB</td><td style="text-align:right;padding:14px 12px;border-bottom:1px solid #e0e5e5">1×</td></tr>
+            <tr><td style="padding:14px 12px;font-family:'Fira Sans',sans-serif;border-bottom:2px solid #23373b">Diferenciación implícita</td><td style="text-align:right;padding:14px 12px;border-bottom:2px solid #23373b">38 421 – 49 337 s</td><td style="text-align:right;padding:14px 12px;border-bottom:2px solid #23373b">sin reducción</td><td style="text-align:right;padding:14px 12px;border-bottom:2px solid #23373b;color:#c0392b">≈ 11×</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:24px;color:#5d6d70;font-style:italic">La rama implícita multiplica el tiempo por once sin reducir la memoria, pese a que su motivación declarada es no almacenar las iteraciones intermedias. Total del estudio: 1 180 horas-CPU.</div>
+      </div>
+      <div style="display:flex;gap:16px;font-size:24px;line-height:1.4;border-top:1px solid #d3d9da;padding-top:18px"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>En instancias individuales pequeñas el solver exacto es más rápido; la ventaja del método aparece en el régimen por lotes, donde una sola pasada sirve a muchas plantas.</div></div>
+    </div>
+  </section>
+
+
+  <section data-label="R4 Celdas topológicas" data-screen-label="31" data-speaker-notes="Respaldo: desempeño por celda topológica. Corrige la lectura ingenua de que S2 generaliza mejor que S1. Úsala si alguien nota esa aparente inversión." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="0af1e62e">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">31 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">El factor que ordena las celdas es el número de actuadores, no la cardinalidad del polítopo</div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:grid;grid-template-columns:1.25fr 1fr;gap:48px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <table style="width:100%;border-collapse:collapse;font-size:24px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">
+          <thead><tr style="border-top:2px solid #23373b;border-bottom:1px solid #23373b"><th style="text-align:left;padding:12px;font-weight:500;font-family:'Fira Sans',sans-serif">Escenario</th><th style="text-align:left;padding:12px;font-weight:500;font-family:'Fira Sans',sans-serif">(nᵤ, N)</th><th style="text-align:right;padding:12px;font-weight:500;font-family:'Fira Sans',sans-serif">% estab.</th><th style="text-align:right;padding:12px;font-weight:500;font-family:'Fira Sans',sans-serif">% decaim.</th><th style="text-align:right;padding:12px;font-weight:500;font-family:'Fira Sans',sans-serif">κ(Q) med.</th><th style="text-align:right;padding:12px;font-weight:500;font-family:'Fira Sans',sans-serif">sistemas</th></tr></thead>
+          <tbody>
+            <tr><td style="padding:11px 12px;border-bottom:1px solid #eceff0">S1</td><td style="padding:11px 12px;border-bottom:1px solid #eceff0">(1, 2)</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">92,5</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">86,5</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1,62</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">200</td></tr>
+            <tr><td style="padding:11px 12px;border-bottom:1px solid #eceff0">S1</td><td style="padding:11px 12px;border-bottom:1px solid #eceff0">(1, 3)</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">94,5</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">87,0</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1,86</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">200</td></tr>
+            <tr><td style="padding:11px 12px;border-bottom:1px solid #eceff0">S1</td><td style="padding:11px 12px;border-bottom:1px solid #eceff0">(1, 4)</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">95,0</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">80,5</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1,75</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">200</td></tr>
+            <tr style="background:#f5f2ee"><td style="padding:11px 12px;border-bottom:1px solid #e6e0d8">S2</td><td style="padding:11px 12px;border-bottom:1px solid #e6e0d8">(1, 5)</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #e6e0d8;color:#a75a0f">93,8</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #e6e0d8">81,5</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #e6e0d8">1,67</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #e6e0d8">1000</td></tr>
+            <tr><td style="padding:11px 12px;border-bottom:1px solid #eceff0">S2</td><td style="padding:11px 12px;border-bottom:1px solid #eceff0">(2, 2)</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0;color:#16707f">99,1</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">95,5</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1,73</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1000</td></tr>
+            <tr><td style="padding:11px 12px;border-bottom:1px solid #eceff0">S2</td><td style="padding:11px 12px;border-bottom:1px solid #eceff0">(2, 3)</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0;color:#16707f">98,8</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">95,0</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1,72</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1000</td></tr>
+            <tr><td style="padding:11px 12px;border-bottom:1px solid #eceff0">S2</td><td style="padding:11px 12px;border-bottom:1px solid #eceff0">(2, 4)</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0;color:#16707f">98,1</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">91,7</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1,65</td><td style="text-align:right;padding:11px 12px;border-bottom:1px solid #eceff0">1000</td></tr>
+            <tr><td style="padding:11px 12px;border-bottom:2px solid #23373b">S2</td><td style="padding:11px 12px;border-bottom:2px solid #23373b">(2, 5)</td><td style="text-align:right;padding:11px 12px;border-bottom:2px solid #23373b;color:#16707f">97,3</td><td style="text-align:right;padding:11px 12px;border-bottom:2px solid #23373b">90,7</td><td style="text-align:right;padding:11px 12px;border-bottom:2px solid #23373b">1,59</td><td style="text-align:right;padding:11px 12px;border-bottom:2px solid #23373b">1000</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:24px;color:#5d6d70;font-style:italic">Mejor configuración, época 400, presupuesto 8000, promedio sobre semillas.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px;font-size:24px;line-height:1.45">
+        <div style="border-left:5px solid #23373b;background:#eceff0;padding:20px 24px">Todas las celdas de un actuador quedan entre 92,5 y 95,0 %; todas las de dos actuadores, entre 97,3 y 99,1 %. El corte separa por \(n_u\), <span style="font-weight:400">no</span> por \(N\) ni por escenario.</div>
+        <div style="display:flex;gap:16px"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:9px"></div><div>Lectura ingenua: «S2 (97,4 %) generaliza mejor que S1 (94,0 %)», lo que sería absurdo.</div></div>
+        <div style="display:flex;gap:16px"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>Explicación: la partición retenida contiene las celdas de dos actuadores, más fáciles porque hay más libertad para ubicar la ganancia; S1 solo contiene celdas de un actuador.</div></div>
+        <div style="display:flex;gap:16px"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>A igual cardinalidad de actuadores, la celda retenida (1, 5) rinde como sus vecinas vistas: no hay salto de generalización que explicar.</div></div>
+      </div>
+    </div>
+  </section>
+
+
+  <section data-label="R5 Iters mínimas" data-screen-label="32" data-speaker-notes="Respaldo: cómo se define y cómo se lee la métrica de iteraciones mínimas. Úsala si preguntan por el costo real en línea." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="411a2035">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">32 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">Iteraciones mínimas: definición operativa y sus tres advertencias</div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:grid;grid-template-columns:1fr 1fr;gap:48px">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Definición</div>
+        <div style="background:#eceff0;padding:24px 28px;font-size:25px;line-height:1.6">Sea \(K^{(k)}_s\) la ganancia obtenida al detener la capa tras \(k\) iteraciones y \(a(K;s)\) la abscisa espectral del lazo cerrado. Entonces<div style="margin-top:14px">\(\mathrm{iters}_{\min}(s) = \min\{\,k \in \mathcal{G} : a(K^{(k)}_s; s) &lt; 0\,\}\),</div><div style="margin-top:12px">y \(\mathrm{iters}_{\min}(s) \triangleq \infty\) si el conjunto es vacío.</div></div>
+        <div style="font-size:24px;line-height:1.45;color:#5d6d70">Se reporta la mediana sobre los sistemas con \(\mathrm{iters}_{\min} &lt; \infty\): mide el costo computacional real de la etapa en línea.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:24px;font-weight:400">1 · Cuantización de la grilla</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">La métrica se sondea sobre una grilla discreta de presupuestos \(\mathcal{G}\); sus medianas heredan esa cuantización y las comparaciones entre valores adyacentes deben tomarse como cotas, no como diferencias.</div>
+        </div>
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:24px;font-weight:400">2 · Condicionalidad al éxito</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">Las medianas son condicionales al éxito eventual: los sistemas no estabilizados dentro del presupuesto máximo quedan censurados, por lo que la métrica se lee siempre junto al indicador de estabilidad al presupuesto máximo.</div>
+        </div>
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:24px;font-weight:400">3 · No monotonía de la trayectoria</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">La trayectoria de proyección no es monótona: un sistema puede cruzar transitoriamente al lado estable y volver a salir. La implementación registra el primer cruce y, por eso, se reporta acompañada del estado final.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <section data-label="R6 Colapso" data-screen-label="33" data-speaker-notes="Respaldo: anatomía del colapso de margen_norm fuera de distribución. Úsala como continuación natural de la lámina de fuera de distribución." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="67dd87d4">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">33 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">Anatomía del colapso de <span style="font-family:'Fira Mono',monospace;font-size:34px">margen_norm</span></div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:grid;grid-template-columns:1.15fr 1fr;gap:46px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#5d6d70">Rampa del polítopo de vértice marginal</div>
+        <table style="width:100%;border-collapse:collapse;font-size:24px;font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">
+          <thead>
+            <tr><th style="padding:0 12px 6px"></th><th colspan="3" style="text-align:center;padding:0 12px 6px;font-family:'Fira Sans',sans-serif;font-weight:400;font-size:24px;color:#c0392b;border-bottom:2px solid #c0392b">margen_norm</th><th colspan="2" style="text-align:center;padding:0 12px 6px;font-family:'Fira Sans',sans-serif;font-weight:400;font-size:24px;color:#16707f;border-bottom:2px solid #16707f">control_margen</th></tr>
+            <tr style="border-bottom:1px solid #23373b"><th style="text-align:left;padding:12px;font-family:'Fira Sans',sans-serif;font-weight:500">δ</th><th style="text-align:right;padding:12px;font-family:'Fira Sans',sans-serif;font-weight:500">estab.</th><th style="text-align:right;padding:12px;font-family:'Fira Sans',sans-serif;font-weight:500">máx κ(Q)</th><th style="text-align:right;padding:12px;font-family:'Fira Sans',sans-serif;font-weight:500">peor Re λ</th><th style="text-align:right;padding:12px;font-family:'Fira Sans',sans-serif;font-weight:500">estab.</th><th style="text-align:right;padding:12px;font-family:'Fira Sans',sans-serif;font-weight:500">κ(Q) med.</th></tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">0.0</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">4/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">7,0 × 10³</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">−0,007</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">4/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">1,6</td></tr>
+            <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">0.5</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">2/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">8,2 × 10³</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0;color:#c0392b">+0,19</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">4/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">6,2</td></tr>
+            <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">1.0</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">2/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">1,1 × 10⁷</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0;color:#c0392b">+1,6 × 10⁴</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">4/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">18,4</td></tr>
+            <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">1.5</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">1/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">1,4 × 10⁸</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0;color:#c0392b">+234</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">4/4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">38,8</td></tr>
+            <tr><td style="padding:13px 12px;border-bottom:2px solid #23373b">2.0</td><td style="text-align:right;padding:13px 12px;border-bottom:2px solid #23373b;color:#c0392b">0/4</td><td style="text-align:right;padding:13px 12px;border-bottom:2px solid #23373b">1,7 × 10⁹</td><td style="text-align:right;padding:13px 12px;border-bottom:2px solid #23373b;color:#c0392b">+406</td><td style="text-align:right;padding:13px 12px;border-bottom:2px solid #23373b">4/4</td><td style="text-align:right;padding:13px 12px;border-bottom:2px solid #23373b">67,7</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:24px;color:#5d6d70;font-style:italic">La factibilidad según el solver convexo se mantiene en toda la rampa: cada fallo es atribuible al método.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;font-size:24px;line-height:1.45">
+        <svg viewBox="0 0 560 240" style="width:100%;height:240px">
+          <rect x="0" y="0" width="560" height="240" fill="#f2f4f4"></rect>
+          <polygon points="40,180 210,40 210,180" fill="rgba(35,55,59,.10)" stroke="#23373b" stroke-width="2"></polygon>
+          <circle cx="140" cy="140" r="6" fill="#16707f"></circle>
+          <text x="150" y="136" font-family="Fira Sans" font-size="22" fill="#16707f">ŷ en δ = 0: margen máximo</text>
+          <polygon points="260,180 420,110 420,180" fill="rgba(192,57,43,.10)" stroke="#c0392b" stroke-width="2"></polygon>
+          <circle cx="330" cy="150" r="6" fill="#c0392b"></circle>
+          <text x="256" y="204" font-family="Fira Sans" font-size="22" fill="#c0392b">C(δ) se adelgaza en la</text><text x="256" y="232" font-family="Fira Sans" font-size="22" fill="#c0392b">dirección del sesgo</text>
+          <text x="40" y="204" font-family="Fira Sans" font-size="22" fill="#5d6d70">nominal</text>
+        </svg>
+        <div style="display:flex;gap:16px"><div style="width:10px;height:10px;background:#c0392b;flex:none;margin-top:9px"></div><div>El codificador aprende a apuntar al punto de margen máximo del conjunto nominal; bajo deriva, el conjunto factible se adelgaza precisamente en esa dirección.</div></div>
+        <div style="display:flex;gap:16px"><div style="width:10px;height:10px;background:#c0392b;flex:none;margin-top:9px"></div><div>El residual se estanca en una meseta, el certificado degenera con \(\kappa(Q)\sim 10^{7}\) y la ganancia explota.</div></div>
+        <div style="display:flex;gap:16px"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>Control decisivo: desde una propuesta <span style="font-style:italic">aleatoria</span> el solver proyecta sobre la parte ancha y estabiliza — el fallo es del codificador, no del solver.</div></div>
+        <div style="display:flex;gap:16px"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>El piso espectral de <span style="font-family:'Fira Mono',monospace;font-size:24px">control_margen</span> mantiene \(\kappa(Q)\) acotado entre 1,6 y 68 y estabiliza toda la rampa.</div></div>
+      </div>
+    </div>
+  </section>
+
+
+  <section data-label="R7 Pérdidas" data-screen-label="34" data-speaker-notes="Respaldo: las seis funciones de pérdida, su definición formal y su efecto marginal. Úsala si preguntan por qué gana margen_norm en S2." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="46ed7a3d">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">34 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">Las seis funciones de pérdida: definición, geometría y efecto marginal</div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:flex;flex-direction:column;gap:22px">
+      <table style="width:100%;border-collapse:collapse;font-size:24px">
+        <thead><tr style="border-top:2px solid #23373b;border-bottom:1px solid #23373b">
+          <th style="text-align:left;padding:14px 12px;font-weight:500">Pérdida</th>
+          <th style="text-align:left;padding:14px 12px;font-weight:500">Expresión (sobre el certificado proyectado)</th>
+          <th style="text-align:left;padding:14px 12px;font-weight:500">Optimiza</th>
+          <th style="text-align:center;padding:14px 12px;font-weight:500">Frontera</th>
+          <th style="text-align:right;padding:14px 12px;font-weight:500">% estab. S2</th>
+          <th style="text-align:right;padding:14px 12px;font-weight:500">iters mín.</th>
+        </tr></thead>
+        <tbody style="font-family:'Fira Mono',monospace;font-feature-settings:'tnum'">
+          <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">condicionamiento</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:inherit">\(\lambda_{\max}(Q)/\lambda_{\min}(Q)\)</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif">Elipsoide esférico</td><td style="text-align:center;padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif;color:#5d6d70">Agnóstica</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0;color:#16707f">89,2</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">250</td></tr>
+          <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">margen_norm</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:inherit">\(-\lambda_{\min}(F) + 0.1\,\mathrm{tr}(Q)\)</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif">Margen normalizado</td><td style="text-align:center;padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif;color:#16707f">Repele</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0;color:#16707f">87,4</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">100</td></tr>
+          <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">control_margen</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:inherit">\(\mathcal{L}_{control} + \mathrm{relu}(0.05 - \lambda_{\min}(Q))\)</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif">Volumen + piso en \(Q\)</td><td style="text-align:center;padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif;color:#16707f">Repele</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">85,7</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">250</td></tr>
+          <tr><td style="padding:13px 12px;border-bottom:1px solid #eceff0">esfuerzo</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:inherit">\(\|YQ^{-1}\|_F^2\)</td><td style="padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif">Ganancia acotada</td><td style="text-align:center;padding:13px 12px;border-bottom:1px solid #eceff0;font-family:'Fira Sans',sans-serif;color:#5d6d70">Agnóstica</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">83,2</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #eceff0">100</td></tr>
+          <tr style="background:#f5f2ee"><td style="padding:13px 12px;border-bottom:1px solid #e6e0d8;color:#a75a0f">paper</td><td style="padding:13px 12px;border-bottom:1px solid #e6e0d8;font-family:inherit">\(\log\det(Q) - 100\,\lambda_{\min}(F)\)</td><td style="padding:13px 12px;border-bottom:1px solid #e6e0d8;font-family:'Fira Sans',sans-serif">Volumen + margen</td><td style="text-align:center;padding:13px 12px;border-bottom:1px solid #e6e0d8;font-family:'Fira Sans',sans-serif;color:#16707f">Repele</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #e6e0d8;color:#a75a0f">82,2</td><td style="text-align:right;padding:13px 12px;border-bottom:1px solid #e6e0d8">250</td></tr>
+          <tr><td style="padding:13px 12px;border-bottom:2px solid #23373b">control</td><td style="padding:13px 12px;border-bottom:2px solid #23373b;font-family:inherit">\(\mathrm{tr}(Q) + 0.1\|Y\|_F^2\)</td><td style="padding:13px 12px;border-bottom:2px solid #23373b;font-family:'Fira Sans',sans-serif">Volumen + esfuerzo</td><td style="text-align:center;padding:13px 12px;border-bottom:2px solid #23373b;font-family:'Fira Sans',sans-serif;color:#c0392b">Atrae</td><td style="text-align:right;padding:13px 12px;border-bottom:2px solid #23373b;color:#c0392b">78,0</td><td style="text-align:right;padding:13px 12px;border-bottom:2px solid #23373b">250</td></tr>
+        </tbody>
+      </table>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 44px">
+        <div style="display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>El ordenamiento reproduce el tratamiento de la frontera: los criterios que la repelen o penalizan sus esquinas superan a la pérdida original.</div></div>
+        <div style="display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#16707f;flex:none;margin-top:9px"></div><div>Basta añadir el piso espectral a <span style="font-family:'Fira Mono',monospace;font-size:24px">control</span> para ganar 7,7 puntos: es el costo aislado de optimizar sobre la frontera.</div></div>
+        <div style="grid-column:1 / -1;display:flex;gap:16px;font-size:24px;line-height:1.4"><div style="width:10px;height:10px;background:#eb811b;flex:none;margin-top:9px"></div><div><span style="font-weight:400">Distinción importante:</span> la columna «Optimiza» describe el criterio teórico que inspira cada pérdida; la columna «Expresión» es lo efectivamente implementado y diferenciado. Los nombres no deben leerse como garantías de la propiedad que evocan.</div></div>
+      </div>
+    </div>
+  </section>
+
+
+  <section data-label="R8 Validez" data-screen-label="35" data-speaker-notes="Respaldo: amenazas a la validez del estudio. Úsala si preguntan por réplicas, semillas o significancia estadística." style="background:#fafafa;color:#23373b;font-family:'Fira Sans',sans-serif;font-weight:300;display:flex;flex-direction:column" data-om-slide-id="607d7d18">
+    <div style="background:#5d6d70;color:#fafafa;padding:11px 88px;display:flex;justify-content:space-between;align-items:center;font-size:24px;letter-spacing:.24em;text-transform:uppercase"><span>Respaldo</span><span style="font-family:'Fira Mono',monospace;letter-spacing:.1em">35 / 35</span></div>
+    <div style="background:#23373b;color:#fafafa;padding:24px 88px 22px">
+      <div style="font-size:38px;font-weight:400;line-height:1.16">Amenazas a la validez y costo de replicación</div>
+    </div>
+    <div style="flex:1;padding:30px 88px 30px;display:grid;grid-template-columns:1fr 1fr;gap:46px">
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:25px;font-weight:400">Número de réplicas</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">Dos semillas por configuración, que controlan la partición de datos y la inicialización. Una tercera réplica del barrido completo habría añadido del orden de <span style="color:#23373b;font-family:'Fira Mono',monospace">590 horas</span> de procesador sobre las <span style="color:#23373b;font-family:'Fira Mono',monospace">1 180</span> del estudio, fuera del presupuesto disponible.</div>
+        </div>
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:25px;font-weight:400">Resolución de las diferencias</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">La dispersión entre semillas, medida sobre las 174 configuraciones con ambas réplicas en S2, tiene mediana de <span style="color:#23373b;font-family:'Fira Mono',monospace">0,60</span> puntos y percentil 75 de <span style="color:#23373b;font-family:'Fira Mono',monospace">1,28</span>: las diferencias inferiores a 1,3 puntos <span style="color:#23373b">no son resolubles</span> con este diseño.</div>
+        </div>
+        <div style="border-left:5px solid #16707f;background:#eaf1f2;padding:20px 26px;font-size:24px;line-height:1.45">Los efectos que este trabajo sostiene superan ese umbral en al menos un orden de magnitud: desenrollado frente a diferenciación implícita (<span style="font-family:'Fira Mono',monospace">34,3</span> puntos), presupuesto de desenrollado (<span style="font-family:'Fira Mono',monospace">14,1</span>) y colapso fuera de distribución de <span style="font-family:'Fira Mono',monospace">margen_norm</span> (<span style="font-family:'Fira Mono',monospace">60,7</span>). Los ordenamientos internos del grupo de cabeza deben leerse como empates.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:25px;font-weight:400">Marginales con cobertura desigual</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">El diseño no es un factorial completo sobre todos los ejes a la vez: cada etapa varía un subconjunto manteniendo el resto en la configuración base, de modo que los efectos marginales se leen dentro de esa base y no como interacciones estimadas.</div>
+        </div>
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:25px;font-weight:400">Alcance poblacional</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">La base de sistemas es sintética y controlada: sirve para sostener afirmaciones comparativas entre métodos —lo que este trabajo hace— pero no para estimar la frecuencia de éxito sobre la población general de plantas reales.</div>
+        </div>
+        <div style="border:1px solid #d3d9da;padding:20px 26px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:25px;font-weight:400">Métrica de presupuesto mínimo</div>
+          <div style="font-size:24px;line-height:1.45;color:#5d6d70">Cuantizada por la grilla de sondeo y censurada al presupuesto máximo (lámina 31): sus medianas son cotas condicionales al éxito, no tiempos exactos.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+</x-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;acentoHeredado&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#eb811b&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#eb811b&quot;,&quot;#b68235&quot;,&quot;#c0392b&quot;],&quot;section&quot;:&quot;Convención de color&quot;},&quot;acentoPropio&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#16707f&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#16707f&quot;,&quot;#1f6f4a&quot;,&quot;#2e5d9f&quot;],&quot;section&quot;:&quot;Convención de color&quot;},&quot;progressBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Tema&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    this._theme();
+    this._scheduleMath();
+  }
+  componentDidUpdate() { this._theme(); this._scheduleMath(); }
+  _theme() {
+    const r = document.documentElement.style;
+    r.setProperty('--A', this.props.acentoHeredado || '#eb811b');
+    r.setProperty('--B', this.props.acentoPropio || '#16707f');
+    r.setProperty('--pb', (this.props.progressBar ?? true) ? '1' : '0');
+  }
+  _scheduleMath() {
+    clearTimeout(this._mt);
+    this._mt = setTimeout(() => this._math(0), 120);
+  }
+  _opts() {
+    return {
+      delimiters: [
+        { left: '\\[', right: '\\]', display: true },
+        { left: '\\(', right: '\\)', display: false }
+      ],
+      throwOnError: false,
+      ignoredTags: ['script', 'noscript', 'style', 'textarea', 'svg', 'text']
+    };
+  }
+  /* Renders math one slide at a time, visible slide first, the rest in idle chunks,
+     so the deck is interactive immediately instead of blocking on ~200 renders. */
+  _math(tries) {
+    if (!window.renderMathInElement) {
+      if (tries < 80) this._mt = setTimeout(() => this._math(tries + 1), 150);
+      return;
+    }
+    const all = Array.from(document.querySelectorAll('section[data-screen-label]:not([data-math])'));
+    if (!all.length) return;
+    const inView = all.filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+    });
+    const queue = inView.concat(all.filter((el) => inView.indexOf(el) === -1));
+    const opts = this._opts();
+    const step = () => {
+      const batch = queue.splice(0, 2);
+      batch.forEach((el) => {
+        const txt = el.textContent || '';
+        if (txt.includes('\\(') || txt.includes('\\[')) {
+          try { window.renderMathInElement(el, opts); } catch (e) {}
+        }
+        el.setAttribute('data-math', '1');
+      });
+      if (queue.length) {
+        (window.requestIdleCallback || window.requestAnimationFrame)(step);
+      } else {
+        const st = document.querySelector('deck-stage');
+        if (st && st._renderRail) setTimeout(() => { try { st._renderRail(true); } catch (e) {} }, 120);
+      }
+    };
+    step();
+  }
+}
+</script>
+</body>
+</html>
